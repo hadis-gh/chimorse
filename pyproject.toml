@@ -1,0 +1,23 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "chimorse"
+version = "0.1.0"
+authors = [{ name = "Hadis Ghodrati", email = "hadis.ghodrati-saeini@physik.tu-chemnitz.de" }]
+maintainers = [{ name = "Jeffrey Kelling", email = "jeffrey.kelling@physik.tu-chemnitz.de" }]
+license = { file = "LICENSE" }
+description = "Symmetry-constrained Fourier–Morse potential models for chiral pair interactions"
+requires-python = ">=3.9"
+dependencies = [
+    "numpy",
+    "pandas",
+    "scipy",
+    "matplotlib",
+    "seaborn",
+    "lmfit",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]
