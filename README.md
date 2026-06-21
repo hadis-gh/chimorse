@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/logo_chimorse.png" alt="chimorse logo" width="250"/>
+  <img src="docs/logo_chimorse.png" alt="chimorse logo" width="270"/>
 </p>
 
 <p align="center">
@@ -24,7 +24,7 @@ $$
 where the well depth $D$, equilibrium distance $r_e$ (and optionally the width $\alpha$) vary with the relative orientation of the two helices. That orientation dependence is represented in a **symmetry-adapted Fourier basis** in the chiral coordinates
 
 $$
-\chi = \varphi_1 - h\,\varphi_2, \qquad \psi = \varphi_1 + h\,\varphi_2,
+\chi = \varphi_1 - h \varphi_2, \qquad \psi = \varphi_1 + h \varphi_2,
 $$
 
 with $h=\pm 1$ the screw direction. The symmetry of each interaction class fixes which Fourier terms survive, so the model stays compact.
