@@ -4,5 +4,6 @@ __pycache__/
 *.dat
 *.pdf
 *.txt
+*.json
 .venv/
 .ipynb_checkpoints/
