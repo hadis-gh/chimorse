@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/logo_chimorse.png" alt="chimorse logo" width="270"/>
+  <img src="docs/logo_chimorse.png" alt="chimorse logo" width="300"/>
 </p>
 
 <p align="center">
@@ -9,6 +9,10 @@
 <p align="center">
   <img src="https://img.shields.io/badge/python-%E2%89%A53.9-blue.svg" alt="Python ≥3.9"/>
   <img src="https://img.shields.io/badge/license-MIT-green.svg" alt="License: MIT"/>
+</p>
+
+<p align="center">
+  <img src="docs/images/workflow.png" alt="chimorse workflow pipeline" width="800"/>
 </p>
 
 ---

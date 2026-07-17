@@ -79,7 +79,11 @@ stack: NumPy [@Harris2020], pandas [@McKinney2010], and Matplotlib [@Hunter2007]
 
 # Software design
 
-`chimorse` is organized as a small, layered package with a clear dependency order from
+The end-to-end workflow of `chimorse` is structured to take a user from raw ab initio quantum-chemical data to a highly optimized, physically consistent analytical potential, as illustrated in Figure \ref{fig:workflow}.
+
+![chimorse workflow: From ab initio interaction landscapes to a symmetry-constrained, pruned analytical model.\label{fig:workflow}](../docs/images/workflow.png)
+
+The package is organized as a small, layered package with a clear dependency order from
 numerical primitives up to figures:
 
 - **`config`** — molecule metadata, interaction definitions, colormaps, and output-path
