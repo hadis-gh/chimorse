@@ -51,6 +51,15 @@ def load_data(molecule, interaction, zero_zeta=True):
 # ======================================================================
 # Export configuration to C++ Molecular Dynamics Engine
 # ======================================================================
+import json
+from pathlib import Path
+
+import numpy as np
+
+
+VALID_INTERACTIONS = {"EP", "EA", "OP", "OA"}
+
+
 def export_chimorse_json(
     filepath,
     h_chi,
@@ -63,6 +72,24 @@ def export_chimorse_json(
     fixed_alpha=None,
     cutoff=12.0,
 ):
+    """
+    Export one fitted chiMorse interaction model.
+
+    The resulting file contains only interaction-specific information.
+    Shared information, such as the angle convention and Morse equation,
+    is added later by export_chimorse_combined_json().
+    """
+
+    if alpha_coeff is not None and fixed_alpha is not None:
+        raise ValueError(
+            "Provide alpha_coeff or fixed_alpha, not both."
+        )
+
+    if alpha_coeff is None and fixed_alpha is None:
+        raise ValueError(
+            "Provide either alpha_coeff or fixed_alpha."
+        )
+
     terms = create_fourier_terms_2d(
         h_chi=h_chi,
         h_psi=h_psi,
@@ -70,48 +97,48 @@ def export_chimorse_json(
         screw_step=screw_step,
     )
 
-    D_coeff = np.asarray(D_coeff, dtype=float)
-    re_coeff = np.asarray(re_coeff, dtype=float)
+    D_coeff = np.asarray(D_coeff, dtype=float).reshape(-1)
+    re_coeff = np.asarray(re_coeff, dtype=float).reshape(-1)
 
-    if len(D_coeff) != len(terms):
-        raise ValueError("D coefficient size does not match basis size")
+    number_of_terms = len(terms)
 
-    if len(re_coeff) != len(terms):
-        raise ValueError("re coefficient size does not match basis size")
+    if len(D_coeff) != number_of_terms:
+        raise ValueError(
+            "D coefficient size does not match basis size: "
+            f"{len(D_coeff)} coefficients for {number_of_terms} terms."
+        )
+
+    if len(re_coeff) != number_of_terms:
+        raise ValueError(
+            "re coefficient size does not match basis size: "
+            f"{len(re_coeff)} coefficients for {number_of_terms} terms."
+        )
 
     if alpha_coeff is not None:
-        alpha_coeff = np.asarray(alpha_coeff, dtype=float)
+        alpha_coeff = np.asarray(
+            alpha_coeff,
+            dtype=float,
+        ).reshape(-1)
 
-        if len(alpha_coeff) != len(terms):
-            raise ValueError("alpha coefficient size does not match basis size")
+        if len(alpha_coeff) != number_of_terms:
+            raise ValueError(
+                "alpha coefficient size does not match basis size: "
+                f"{len(alpha_coeff)} coefficients for "
+                f"{number_of_terms} terms."
+            )
 
         alpha_model = {
             "type": "fourier",
             "coefficients": alpha_coeff.tolist(),
         }
 
-    elif fixed_alpha is not None:
+    else:
         alpha_model = {
             "type": "constant",
             "value": float(fixed_alpha),
         }
 
-    else:
-        raise ValueError("Provide either alpha_coeff or fixed_alpha")
-
     model = {
-        "format": "chimorse_anisotropic_morse",
-        "version": 1,
-
-        "angle_units": "radian",
-
-        "angle_definition": {
-            "chi": "phi2 - phi1",
-            "psi": "phi1 + phi2",
-        },
-
-        "morse": "D * (exp(-2*alpha*(r-re)) - 2*exp(-alpha*(r-re)))",
-
         "cutoff": float(cutoff),
 
         "basis_terms": terms,
@@ -129,5 +156,127 @@ def export_chimorse_json(
         },
     }
 
-    with open(filepath, "w") as f:
-        json.dump(model, f, indent=2)
+    filepath = Path(filepath)
+
+    if filepath.suffix.lower() != ".json":
+        filepath = filepath.with_suffix(".json")
+
+    filepath.parent.mkdir(parents=True, exist_ok=True)
+
+    with filepath.open("w", encoding="utf-8") as file:
+        json.dump(model, file, indent=2)
+
+    print(f"chiMorse interaction model written to: {filepath}")
+
+
+# ----------------------------------------------------------------------
+
+
+def export_chimorse_combined_json(
+    target_file,
+    source_directory,
+    interactions=("EP", "EA", "OP", "OA"),
+):
+    """
+    Combine individual EP, EA, OP, and OA interaction files into
+    one chiMorse model file.
+
+    Interaction labels:
+        EP = equal handedness, parallel alignment
+        EA = equal handedness, antiparallel alignment
+        OP = opposite handedness, parallel alignment
+        OA = opposite handedness, antiparallel alignment
+    """
+
+    source_directory = Path(source_directory)
+    target_file = Path(target_file)
+
+    if target_file.suffix.lower() != ".json":
+        target_file = target_file.with_suffix(".json")
+
+    normalized_interactions = [
+        str(interaction).upper()
+        for interaction in interactions
+    ]
+
+    if len(normalized_interactions) != len(
+        set(normalized_interactions)
+    ):
+        raise ValueError(
+            "The interaction list contains duplicate categories."
+        )
+
+    unknown_interactions = (
+        set(normalized_interactions) - VALID_INTERACTIONS
+    )
+
+    if unknown_interactions:
+        unknown_text = ", ".join(sorted(unknown_interactions))
+
+        raise ValueError(
+            f"Unknown interaction categories: {unknown_text}"
+        )
+
+    combined_model = {
+        "format": "chimorse_multi_interaction",
+        "version": 1,
+
+        "angle_units": "radian",
+
+        "angle_definition": {
+            "chi": "phi2 - h * phi1",
+            "psi": "phi1 + h * phi2",
+        },
+
+        "handedness_factor": {
+            "equal": 1,
+            "opposite": -1,
+        },
+
+        "morse": (
+            "D * (exp(-2*alpha*(r-re)) "
+            "- 2*exp(-alpha*(r-re)))"
+        ),
+
+        "interactions": {},
+    }
+
+    required_keys = {
+        "cutoff",
+        "basis_terms",
+        "parameters",
+    }
+
+    for interaction in normalized_interactions:
+        source_file = source_directory / f"{interaction}.json"
+
+        if not source_file.is_file():
+            raise FileNotFoundError(
+                f"Missing interaction file: {source_file}"
+            )
+
+        with source_file.open("r", encoding="utf-8") as file:
+            interaction_model = json.load(file)
+
+        missing_keys = required_keys - interaction_model.keys()
+
+        if missing_keys:
+            missing_text = ", ".join(sorted(missing_keys))
+
+            raise ValueError(
+                f"{source_file} is missing required fields: "
+                f"{missing_text}"
+            )
+
+        combined_model["interactions"][interaction] = {
+            "cutoff": interaction_model["cutoff"],
+            "basis_terms": interaction_model["basis_terms"],
+            "parameters": interaction_model["parameters"],
+        }
+
+    target_file.parent.mkdir(parents=True, exist_ok=True)
+
+    with target_file.open("w", encoding="utf-8") as file:
+        json.dump(combined_model, file, indent=2)
+
+    print(f"Combined chiMorse model written to: {target_file}")
