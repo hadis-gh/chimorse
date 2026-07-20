@@ -8,8 +8,10 @@ import pandas as pd
 import json
 from pathlib import Path
 import numpy as np
+import json
 
 from .analysis import get_screw_dir
+from .fourier import create_fourier_terms_2d
 
 # ----------------------------------------------------------------------
 
@@ -49,57 +51,83 @@ def load_data(molecule, interaction, zero_zeta=True):
 # ======================================================================
 # Export configuration to C++ Molecular Dynamics Engine
 # ======================================================================
-def export_potential_params_json(
-    filepath: str | Path, 
-    molecule_name: str,
-    interaction: str,
-    h_chi: int, 
-    h_psi: int, 
-    symm_chi: bool, 
-    screw_step: float, 
-    D_coeff: np.ndarray, 
-    re_coeff: np.ndarray, 
-    alpha_coeff: np.ndarray = None, 
-    fixed_alpha: float = None,
-    basis_labels: list = None
+def export_chimorse_json(
+    filepath,
+    h_chi,
+    h_psi,
+    symm_chi,
+    screw_step,
+    D_coeff,
+    re_coeff,
+    alpha_coeff=None,
+    fixed_alpha=None,
+    cutoff=12.0,
 ):
-    """
-    Exports the Fourier-Morse coefficients and structural metadata to a JSON 
-    configuration file for C++ integration.
-    """
-    data = {
-        "metadata": {
-            "model_name": "chimorse",
-            "molecule": molecule_name,
-            "interaction": interaction,
-            "fourier_setup": {
-                "h_chi": int(h_chi),
-                "h_psi": int(h_psi),
-                "symm_chi": bool(symm_chi),
-                "screw_step": float(screw_step)
-            }
-        },
-        "coefficients": {
-            # .tolist() is required to serialize numpy arrays to JSON
-            "D": D_coeff.tolist(),
-            "re": re_coeff.tolist()
-        }
-    }
+    terms = create_fourier_terms_2d(
+        h_chi=h_chi,
+        h_psi=h_psi,
+        symm_chi=symm_chi,
+        screw_step=screw_step,
+    )
+
+    D_coeff = np.asarray(D_coeff, dtype=float)
+    re_coeff = np.asarray(re_coeff, dtype=float)
+
+    if len(D_coeff) != len(terms):
+        raise ValueError("D coefficient size does not match basis size")
+
+    if len(re_coeff) != len(terms):
+        raise ValueError("re coefficient size does not match basis size")
 
     if alpha_coeff is not None:
-        data["coefficients"]["alpha"] = alpha_coeff.tolist()
-        data["metadata"]["alpha_fit"] = True
+        alpha_coeff = np.asarray(alpha_coeff, dtype=float)
+
+        if len(alpha_coeff) != len(terms):
+            raise ValueError("alpha coefficient size does not match basis size")
+
+        alpha_model = {
+            "type": "fourier",
+            "coefficients": alpha_coeff.tolist(),
+        }
+
     elif fixed_alpha is not None:
-        data["metadata"]["fixed_alpha"] = float(fixed_alpha)
-        data["metadata"]["alpha_fit"] = False
+        alpha_model = {
+            "type": "constant",
+            "value": float(fixed_alpha),
+        }
 
-    if basis_labels is not None:
-        data["metadata"]["basis_labels"] = basis_labels
+    else:
+        raise ValueError("Provide either alpha_coeff or fixed_alpha")
 
-    path_obj = Path(filepath)
-    path_obj.parent.mkdir(parents=True, exist_ok=True)
-    
-    with open(path_obj, 'w') as f:
-        json.dump(data, f, indent=4)
-        
-    print(f"Successfully exported potential parameters to: {path_obj.resolve()}")
+    model = {
+        "format": "chimorse_anisotropic_morse",
+        "version": 1,
+
+        "angle_units": "radian",
+
+        "angle_definition": {
+            "chi": "phi2 - phi1",
+            "psi": "phi1 + phi2",
+        },
+
+        "morse": "D * (exp(-2*alpha*(r-re)) - 2*exp(-alpha*(r-re)))",
+
+        "cutoff": float(cutoff),
+
+        "basis_terms": terms,
+
+        "parameters": {
+            "D": {
+                "type": "fourier",
+                "coefficients": D_coeff.tolist(),
+            },
+            "re": {
+                "type": "fourier",
+                "coefficients": re_coeff.tolist(),
+            },
+            "alpha": alpha_model,
+        },
+    }
+
+    with open(filepath, "w") as f:
+        json.dump(model, f, indent=2)

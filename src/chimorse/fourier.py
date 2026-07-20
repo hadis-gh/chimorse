@@ -117,6 +117,99 @@ def create_matrix_lsqt_2d(h_chi, h_psi, chi_rad, psi_rad, symm_chi, screw_step):
 
 # ----------------------------------------------------------------------
 
+def create_fourier_terms_2d(h_chi, h_psi, symm_chi, screw_step):
+    """
+    Creates explicit Fourier terms in the same order as fitting matrix.
+    Each term means:
+        coefficient * f_chi(m * chi) * f_psi(n * psi)
+    where f_chi and f_psi are either cos or sin.
+    """
+
+    terms = []
+
+    # constant term = cos(0 chi) cos(0 psi) = 1
+    terms.append({
+        "m": 0,
+        "n": 0,
+        "chi_function": "cos",
+        "psi_function": "cos",
+    })
+
+    k0 = int(round(360.0 / (2.0 * screw_step)))
+
+    # pure chi terms
+    for m in range(1, h_chi + 1):
+        terms.append({
+            "m": m,
+            "n": 0,
+            "chi_function": "cos",
+            "psi_function": "cos",
+        })
+
+        if not symm_chi:
+            terms.append({
+                "m": m,
+                "n": 0,
+                "chi_function": "sin",
+                "psi_function": "cos",
+            })
+
+    # pure psi terms
+    for j in range(1, h_psi + 1):
+        n = k0 * j
+
+        terms.append({
+            "m": 0,
+            "n": n,
+            "chi_function": "cos",
+            "psi_function": "cos",
+        })
+
+        terms.append({
+            "m": 0,
+            "n": n,
+            "chi_function": "cos",
+            "psi_function": "sin",
+        })
+
+    # coupled terms
+    for m in range(1, h_chi + 1):
+        for j in range(1, h_psi + 1):
+            n = k0 * j
+
+            terms.append({
+                "m": m,
+                "n": n,
+                "chi_function": "cos",
+                "psi_function": "cos",
+            })
+
+            terms.append({
+                "m": m,
+                "n": n,
+                "chi_function": "cos",
+                "psi_function": "sin",
+            })
+
+            if not symm_chi:
+                terms.append({
+                    "m": m,
+                    "n": n,
+                    "chi_function": "sin",
+                    "psi_function": "cos",
+                })
+
+                terms.append({
+                    "m": m,
+                    "n": n,
+                    "chi_function": "sin",
+                    "psi_function": "sin",
+                })
+
+    return terms
+
+# ----------------------------------------------------------------------
+
 def create_matrix_lsqt_2d_sum(h_chi, h_psi, chi, psi, symm_chi, screw_step):
     """Build a least-squares design matrix using the cos/sin(m*chi + n*psi) basis (sum-angle form)."""
     num_samples = len(chi)
