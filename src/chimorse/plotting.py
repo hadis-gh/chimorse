@@ -998,7 +998,7 @@ def plot_chi_psi_panel(df_org, interaction, screw_step,
     cmap = colors[interaction]
 
     fig = plt.figure(figsize=(3.1, 4))
-    gs = gridspec.GridSpec(nrows=3, ncols=2, width_ratios=[4.8, 2.2], height_ratios=[.9, 1.95, .8],
+    gs = gridspec.GridSpec(nrows=3, ncols=2, width_ratios=[4.75, 2.6], height_ratios=[.95, 1.95, .96],
                            wspace=0.0, hspace=0.0, figure=fig)
     text_pos = {'EP':(.15, .66, .16, .93),
                 'EA':(.18, .68, .18, .93),
@@ -1025,11 +1025,12 @@ def plot_chi_psi_panel(df_org, interaction, screw_step,
         im, ax=ax_heatmap,
         # label='E (eV)',
         ticks=[-1, -.5],
-        shrink=1, pad=0.14,
+        shrink=1, pad=0.18,
         orientation='horizontal',location='bottom'
     )
     cbar.ax.tick_params(direction='in', length=5.5, width=.2)
     cbar.outline.set_linewidth(.6)
+    cbar.outline.set_color('grey')
 
     # ---------- Top: chi line cuts ----------
     ax_chi = fig.add_subplot(gs[0, 0])
