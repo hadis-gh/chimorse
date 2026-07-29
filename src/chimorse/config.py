@@ -11,20 +11,38 @@ from matplotlib.colors import ListedColormap
 
 # ----------------------------------------------------------------------
 
+# PLOT_PARAMS = {
+#     'font.family': 'serif',      # paper
+#     # 'font.family': 'Sans-serif',  # slide
+#     'font.serif': 'DejaVu Serif',
+#     'font.size': 11,
+#     'axes.titlesize': 11,
+#     'axes.labelsize': 11,
+#     'xtick.labelsize': 8,
+#     'ytick.labelsize': 8,
+#     'figure.dpi': 200,
+#     'savefig.dpi': 300,
+#     'image.cmap': 'magma',
+#     'text.usetex': False,
+#     'mathtext.default': 'regular',
+# }
 PLOT_PARAMS = {
-    'font.family': 'serif',      # paper
-    # 'font.family': 'Sans-serif',  # slide
-    'font.serif': 'DejaVu Serif',
-    'font.size': 11,
-    'axes.titlesize': 11,
-    'axes.labelsize': 11,
-    'xtick.labelsize': 8,
-    'ytick.labelsize': 8,
+    'font.family': 'STIXGeneral',
+    'mathtext.fontset': 'stix',
+    'mathtext.default': 'regular',
+
+    'font.size': 12,
+    'axes.titlesize': 12,
+    'axes.labelsize': 12,
+    'xtick.labelsize': 10,
+    'ytick.labelsize': 10,
+    'legend.fontsize': 10,
+
     'figure.dpi': 200,
     'savefig.dpi': 300,
+
     'image.cmap': 'magma',
     'text.usetex': False,
-    'mathtext.default': 'regular',
 }
 
 PHI_COLORMAP = 'RdBu'
