@@ -60,7 +60,7 @@ import numpy as np
 VALID_INTERACTIONS = {"EP", "EA", "OP", "OA"}
 
 
-def export_chimorse_json(
+def export_chimorse_single_json(
     filepath,
     h_chi,
     h_psi,
