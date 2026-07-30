@@ -51,26 +51,31 @@ def extract_energy_minimums(df, r_max=12):
 
 def extract_energy_comparison(df_data, df_model):
     """Align model and reference on the same grid; return full energy vectors, well depths D, and equilibrium distances r_e for both."""
-    cols_no_e = [c for c in df_data.columns if c not in ('e', 'psi', 'chi')]
+
+    energy_cols = ['phi1', 'phi2', 'r', 'chi', 'psi', 'e']
+    grid_cols = ['phi1', 'phi2', 'r']
+
     model_subset = df_model.merge(
-        df_data[cols_no_e].drop_duplicates(),
-        on=cols_no_e,
+        df_data[grid_cols].drop_duplicates(),
+        on=grid_cols,
         how='inner'
     ).copy()
 
-    sorted_model = model_subset.sort_values(by=cols_no_e)
-    sorted_data  = df_data.sort_values(by=cols_no_e)
+    sorted_model = model_subset[energy_cols].sort_values(by=grid_cols)
+    sorted_data  = df_data[energy_cols].sort_values(by=grid_cols)
 
     df_min_model = extract_energy_minimums(sorted_model, r_max=12)
     df_min_data  = extract_energy_minimums(sorted_data,  r_max=12)
 
-    key_cols = [c for c in df_min_data.columns if c not in ('e', 'r')]
+    key_cols = ['phi1', 'phi2', 'chi', 'psi']
+
     df_min_model = df_min_model.sort_values(by=key_cols)
     df_min_data  = df_min_data.sort_values(by=key_cols)
 
-    D_model = df_min_model['e'].values       # in eV
+    D_model = df_min_model['e'].values
     D_data  = df_min_data['e'].values
-    re_model = df_min_model['r'].values      # in Å
+
+    re_model = df_min_model['r'].values
     re_data  = df_min_data['r'].values
 
     E_data  = sorted_data['e'].values
