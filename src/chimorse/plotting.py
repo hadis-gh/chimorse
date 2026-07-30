@@ -95,15 +95,39 @@ def apply_compact_style(ax, linewidth=0.6, tick_width=0.5):
 # Surface helpers
 # ======================================================================
 
-def make_surface(data, aggfunc, target):
-    """Pivot data into a chi x psi grid via aggfunc, reindexed to a common grid
-       with missing cells filled by nearest-neighbor interpolation."""
+def make_surface(data, aggfunc='min', target='e'):
+    """Pivot data into a chi x psi grid."""
+
     grid = np.sort(data['chi'].unique())
-    E = data.pivot_table(index='psi', columns='chi', values=target,
-                        aggfunc=aggfunc).reindex(index=grid, columns=grid)
-    return E.interpolate(axis=0,
-                            method='nearest',
-                        limit_direction='both')
+
+    if target in ('e', 'r'):
+        data_min = extract_energy_minimums(
+            data[['phi1', 'phi2', 'r', 'chi', 'psi', 'e']],
+            r_max=12
+        )
+
+        values = 'e' if target == 'e' else 'r'
+
+        surface = data_min.pivot_table(
+            index='psi',
+            columns='chi',
+            values=values,
+            aggfunc='mean'
+        ).reindex(index=grid, columns=grid)
+
+    else:
+        surface = data.pivot_table(
+            index='psi',
+            columns='chi',
+            values=target,
+            aggfunc=aggfunc
+        ).reindex(index=grid, columns=grid)
+
+    return surface.interpolate(
+        axis=0,
+        method='nearest',
+        limit_direction='both'
+    )
 
 # ----------------------------------------------------------------------
 
@@ -941,12 +965,13 @@ def plot_energy_surfaces_chi_psi(df, interaction, screw_step,
 
     tol = 1e-6
     df = expand_chi_psi_by_screw_periodicity(df, screw_step)
+    aggfunc = 'mean' if target == 'alpha' else 'min'
 
     if fix_r:
         df_plot = df[np.abs(df['r'] - fix_r) < tol]
         E = make_surface(df_plot, 'mean', target=target)
     else:
-        E = make_surface(df, 'min', target=target)
+        E = make_surface(df, aggfunc, target=target)
 
     if plot_type == 'difference':
         model_df = expand_chi_psi_by_screw_periodicity(model_df, screw_step)
@@ -954,7 +979,7 @@ def plot_energy_surfaces_chi_psi(df, interaction, screw_step,
             model_df_plot = model_df[np.abs(model_df['r'] - fix_r) < tol]
             E_model = make_surface(model_df_plot, 'mean', target=target)
         else:
-            E_model = make_surface(model_df, 'min', target=target)
+            E_model = make_surface(model_df, aggfunc, target=target)
         E = E - E_model
         colormap = 'twilight_shifted'
 
@@ -995,7 +1020,16 @@ def plot_chi_psi_panel(df_org, interaction, screw_step,
                        psi_selection=[60, 150, 210, 300], save_path=None):
     """Combined panel: E(chi,psi) heatmap with E vs chi line cuts (top, at fixed psi) 
        and E vs psi line cuts (right, at fixed chi), each with inline colored labels."""
-    df = expand_chi_psi_by_screw_periodicity(df_org, screw_step)
+
+    base_cols = ['phi1', 'phi2', 'r', 'chi', 'psi', 'e']
+
+    if target == 'alpha' and 'alpha' in df_org.columns:
+        base_cols.append('alpha')
+
+    df_base = df_org[base_cols].copy()
+
+    df = expand_chi_psi_by_screw_periodicity(df_base, screw_step)
+
     cmap = colors[interaction]
 
     fig = plt.figure(figsize=(3.1, 4))
@@ -1013,7 +1047,8 @@ def plot_chi_psi_panel(df_org, interaction, screw_step,
 
     # ---------- Heatmap ----------
     ax_heatmap = fig.add_subplot(gs[1:, 0])
-    E = make_surface(df, 'min', target=target)
+    aggfunc = 'mean' if target == 'alpha' else 'min'
+    E = make_surface(df, aggfunc, target=target)
     im = draw_chi_psi_heatmap(ax_heatmap, E, cmap, left_label=left_label, xlabel_pad=-2)
 
     ax_heatmap.set_xticks([0, 120, 240])
@@ -1036,7 +1071,7 @@ def plot_chi_psi_panel(df_org, interaction, screw_step,
     # ---------- Top: chi line cuts ----------
     ax_chi = fig.add_subplot(gs[0, 0])
 
-    df_min_e = extract_energy_minimums(df_org, r_max=12)
+    df_min_e = extract_energy_minimums(df_base, r_max=12)
     screw_dir = infer_screw_direction(df_org)
     df_cuts = expand_by_screw_periodicity(df_min_e, screw_step, screw_dir=screw_dir)
     data = df_cuts[['phi1', 'phi2', 'chi', 'psi', 'e', 'r']].groupby(

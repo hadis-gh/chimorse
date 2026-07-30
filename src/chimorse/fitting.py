@@ -247,6 +247,21 @@ def generate_fourier_morse_data(df, molecule, interaction, harmonic_ceils,
 
     df_model = evaluate_model_on_reference_grid(model, df, coeffs)
 
+    if alpha_fit:
+        chi_model_rad = np.deg2rad(df_model['chi'].to_numpy())
+        psi_model_rad = np.deg2rad(df_model['psi'].to_numpy())
+
+        A_model, _ = create_matrix_lsqt_2d(
+            h_chi,
+            h_psi,
+            chi_model_rad,
+            psi_model_rad,
+            symm_chi,
+            molecule.screw_step
+        )
+
+        df_model['alpha'] = A_model @ alpha_coeff
+
     if print_errors:
         print('='*200)
         compute_energy_errors(df, df_model)
