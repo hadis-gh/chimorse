@@ -134,7 +134,7 @@ def test_generate_fourier_morse_recovers_constant_potential():
 
     df_model = generate_fourier_morse_data(
         df, mol, "EP", harmonic_ceils,
-        alpha_fit=False, original_size=True, print_errors=False,
+        alpha_fit=False, print_errors=False,
     )
 
     assert len(df_model) == len(df)
