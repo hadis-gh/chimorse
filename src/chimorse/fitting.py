@@ -209,7 +209,7 @@ def _parse_prune_arg(arg, keys=('D', 're', 'alpha')):
 # ----------------------------------------------------------------------
 
 def generate_fourier_morse_data(df, molecule, interaction, harmonic_ceils,
-                                alpha_fit=False, original_size=False, print_errors=True,
+                                alpha_fit=False, print_errors=True,
                                 prune_model=False, prune_thresholds=None, prune_top_n=None):
     """Fit (and optionally prune) Fourier coefficients for D, r_e, and alpha, 
        then evaluate the resulting anisotropic Morse model."""
@@ -245,9 +245,7 @@ def generate_fourier_morse_data(df, molecule, interaction, harmonic_ceils,
     model, coeffs = create_morse_model(df, molecule, interaction,
                                        A, h_chi, h_psi, D_coeff, re_coeff, alpha_coeff)
 
-    df_model = generate_model_df(model, coeffs, r_values, phi1_values, phi2_values, interaction)
-    if original_size:
-        df_model = evaluate_model_on_reference_grid(model, df, coeffs)
+    df_model = evaluate_model_on_reference_grid(model, df, coeffs)
 
     if print_errors:
         print('='*200)
