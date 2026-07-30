@@ -95,11 +95,11 @@ def apply_compact_style(ax, linewidth=0.6, tick_width=0.5):
 # Surface helpers
 # ======================================================================
 
-def make_surface(data, aggfunc):
+def make_surface(data, aggfunc, target):
     """Pivot data into a chi x psi grid via aggfunc, reindexed to a common grid
        with missing cells filled by nearest-neighbor interpolation."""
     grid = np.sort(data['chi'].unique())
-    E = data.pivot_table(index='psi', columns='chi', values='e',
+    E = data.pivot_table(index='psi', columns='chi', values=target,
                         aggfunc=aggfunc).reindex(index=grid, columns=grid)
     return E.interpolate(axis=0,
                             method='nearest',
@@ -933,7 +933,7 @@ def plot_energy_vs_chi_psi_compact(df_raw, interaction, screw_step, x_axis='chi'
 
 def plot_energy_surfaces_chi_psi(df, interaction, screw_step,
                                  colors=INTERACTION_CMAPS,
-                                 fix_r=None, model_df=None,
+                                 target='e', fix_r=None, model_df=None,
                                  plot_type='reference', left_label=True, save_path=None):
     """Plot the E(chi,psi) heatmap for the data, model, or their difference (plot_type), 
        at fixed r or at the minimum energy."""
@@ -944,17 +944,17 @@ def plot_energy_surfaces_chi_psi(df, interaction, screw_step,
 
     if fix_r:
         df_plot = df[np.abs(df['r'] - fix_r) < tol]
-        E = make_surface(df_plot, 'mean')
+        E = make_surface(df_plot, 'mean', target=target)
     else:
-        E = make_surface(df, 'min')
+        E = make_surface(df, 'min', target=target)
 
     if plot_type == 'difference':
         model_df = expand_chi_psi_by_screw_periodicity(model_df, screw_step)
         if fix_r:
             model_df_plot = model_df[np.abs(model_df['r'] - fix_r) < tol]
-            E_model = make_surface(model_df_plot, 'mean')
+            E_model = make_surface(model_df_plot, 'mean', target=target)
         else:
-            E_model = make_surface(model_df, 'min')
+            E_model = make_surface(model_df, 'min', target=target)
         E = E - E_model
         colormap = 'twilight_shifted'
 
@@ -990,7 +990,8 @@ def plot_energy_surfaces_chi_psi(df, interaction, screw_step,
 # ----------------------------------------------------------------------
 
 def plot_chi_psi_panel(df_org, interaction, screw_step,
-                       left_label=True, colors=INTERACTION_CMAPS,
+                       left_label=True, target='e',
+                       colors=INTERACTION_CMAPS,
                        psi_selection=[60, 150, 210, 300], save_path=None):
     """Combined panel: E(chi,psi) heatmap with E vs chi line cuts (top, at fixed psi) 
        and E vs psi line cuts (right, at fixed chi), each with inline colored labels."""
@@ -1012,7 +1013,7 @@ def plot_chi_psi_panel(df_org, interaction, screw_step,
 
     # ---------- Heatmap ----------
     ax_heatmap = fig.add_subplot(gs[1:, 0])
-    E = make_surface(df, 'min')
+    E = make_surface(df, 'min', target=target)
     im = draw_chi_psi_heatmap(ax_heatmap, E, cmap, left_label=left_label, xlabel_pad=-2)
 
     ax_heatmap.set_xticks([0, 120, 240])
