@@ -15,6 +15,14 @@ from .fourier import create_fourier_terms_2d
 
 # ----------------------------------------------------------------------
 
+# Reference data lives in <repo>/data/<molecule>/E_all_<interaction>.dat,
+# i.e. as a sibling of the examples/ directory containing the notebooks.
+# Resolve it relative to this file instead of a hard-coded absolute path.
+REPO_ROOT = Path(__file__).resolve().parents[2]
+DATA_DIR = REPO_ROOT / "data"
+
+# ----------------------------------------------------------------------
+
 def expand_data(df, r_far=20):
     """Append a far-distance point (r=r_far, e=0) for each angle combination, for asymptotic anchoring."""
     angle_cols = [c for c in df.columns if c not in ('r', 'e')]
@@ -37,7 +45,16 @@ def load_data(molecule, interaction, zero_zeta=True):
     """Load raw E(phi1, phi2, z, r) data, derive chi/psi from phi1/phi2, and shift energy by -2*re_energy."""
     screw_dir = get_screw_dir(interaction)
 
-    df = pd.read_csv(f'/home/hadis/chimorse/data/{molecule.path}/{molecule.name}/E_all_{interaction}.dat', sep='\t',
+    data_path = DATA_DIR / molecule.path / molecule.name / f"E_all_{interaction}.dat"
+
+    if not data_path.is_file():
+        raise FileNotFoundError(
+            f"Reference data not found at: {data_path}\n"
+            f"Expected layout: <repo>/data/<molecule>/E_all_<interaction>.dat "
+            f"for molecule '{molecule.name}' and interaction '{interaction}'."
+        )
+
+    df = pd.read_csv(data_path, sep='\t',
                      names=['phi1', 'phi2', 'z', 'r', 'e'])
     df['chi'] = (df['phi1'] - screw_dir * df['phi2']) % 360
     df['psi'] = (df['phi1'] + screw_dir * df['phi2']) % 360
