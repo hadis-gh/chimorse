@@ -90,7 +90,7 @@ df = load_data(molecule, interaction, zero_zeta=True)
 # Fit the anisotropic Morse model and evaluate it on the reference grid
 df_model = generate_fourier_morse_data(
     df, molecule, interaction, harmonic_ceils,
-    alpha_fit=False, original_size=True, print_errors=True,
+    alpha_fit=False, print_errors=True,
 )
 
 # Compare model vs. reference
