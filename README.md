@@ -58,10 +58,10 @@ From DFTB reference data to a fitted (optionally sparse) anisotropic Morse model
 git clone https://github.com/hadis-gh/chimorse.git
 cd chimorse
 
-python uv venv .venv
-source .venv/bin/activate          # Windows: .venv\Scripts\activate
+uv venv .venv
+.venv/bin/activate          # Windows: .venv\Scripts\activate
 
-python uv pip install chimorse -e .
+uv pip install -e .
 ```
 
 The editable install (`-e`) means edits to the source are picked up after a kernel restart, with no reinstall needed.
