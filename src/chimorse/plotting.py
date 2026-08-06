@@ -1311,7 +1311,7 @@ def plot_parity(df_data, df_model, interaction, alpha_fit,
 
 # ----------------------------------------------------------------------
 
-def plot_parity_angle_color(df_data, df_model, color_by, zoom_in=None, save_path=None):
+def plot_parity_angle_color(df_data, df_model, color_by, zoom_in=None, save_path=None, scatter_size=1):
     """Parity scatter (model vs reference) colored by chi, with a 1:1 reference line."""
 
     cols_no_e = [c for c in df_data.columns if c not in ('e', 'psi', 'chi')]
@@ -1332,7 +1332,7 @@ def plot_parity_angle_color(df_data, df_model, color_by, zoom_in=None, save_path
 
     ax.scatter(
         E_ref['e'], E_model['e'],
-        s=1, alpha=.3,
+        s=scatter_size, alpha=.3,
         c=E_model[color_by],
         cmap=cmap, norm=norm,
         linewidths=0, rasterized=True, edgecolors='none'
