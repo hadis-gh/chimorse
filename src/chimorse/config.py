@@ -4,28 +4,21 @@ config.py
 Package-level constants, colormaps, and data structures shared across all modules.
 """
 
+import json
 import seaborn as sns
 from pathlib import Path
 from dataclasses import dataclass
+from types import MappingProxyType
+from typing import Mapping
 from matplotlib.colors import ListedColormap
 
 # ----------------------------------------------------------------------
 
-# PLOT_PARAMS = {
-#     'font.family': 'serif',      # paper
-#     # 'font.family': 'Sans-serif',  # slide
-#     'font.serif': 'DejaVu Serif',
-#     'font.size': 11,
-#     'axes.titlesize': 11,
-#     'axes.labelsize': 11,
-#     'xtick.labelsize': 8,
-#     'ytick.labelsize': 8,
-#     'figure.dpi': 200,
-#     'savefig.dpi': 300,
-#     'image.cmap': 'magma',
-#     'text.usetex': False,
-#     'mathtext.default': 'regular',
-# }
+REPO_ROOT = Path(__file__).resolve().parents[2]
+DATA_DIR = REPO_ROOT / "data"
+
+# ----------------------------------------------------------------------
+
 PLOT_PARAMS = {
     'font.family': 'STIXGeneral',
     'mathtext.fontset': 'stix',
@@ -69,17 +62,65 @@ INTERACTION_CMAPS = {'EP': 'Blues', 'EA': 'Greens', 'OP': 'Purples', 'OA': 'Oran
 
 # ----------------------------------------------------------------------
 
-@dataclass
+@dataclass(frozen=True)
 class MoleculeInfo:
+    """Metadata needed to locate and interpret one molecule dataset."""
+
     name: str
     screw_step: float
     re_energy: float
-    path: str = ''
+    data_dir: Path
+    interactions: frozenset[str]
+    files: Mapping[str, str]
 
-MOLECULES = {
-    'PA' : MoleculeInfo('PA', 20, -6227.1749, ''),
-    'PP1': MoleculeInfo('PP1', 36, -4592.68, ''),
-}
+    def data_file(self, interaction: str) -> Path:
+        """Return the raw data file for an interaction type."""
+        interaction = interaction.upper()
+        if interaction not in self.interactions:
+            raise ValueError(
+                f"Invalid interaction {interaction!r} for {self.name}. "
+                f"Valid interactions: {sorted(self.interactions)}"
+            )
+        return self.data_dir / self.files[interaction]
+
+
+def load_molecule_info(
+    molecule_id: str,
+    metadata_path: Path | str | None = None,
+) -> MoleculeInfo:
+    """Load dataset metadata from ``data/<molecule_id>/metadata.json``."""
+    if metadata_path is None:
+        metadata_path = DATA_DIR / molecule_id / "metadata.json"
+    else:
+        metadata_path = Path(metadata_path)
+
+    if not metadata_path.is_file():
+        raise FileNotFoundError(
+            f"Dataset metadata not found at: {metadata_path}"
+        )
+
+    with metadata_path.open("r", encoding="utf-8") as file:
+        metadata = json.load(file)
+
+    molecule = metadata["molecule"]
+    files = metadata["files"]
+    interactions = frozenset(metadata["interactions"])
+
+    missing_files = interactions - files.keys()
+    if missing_files:
+        raise ValueError(
+            "metadata.json is missing file names for: "
+            f"{sorted(missing_files)}"
+        )
+
+    return MoleculeInfo(
+        name=molecule["id"],
+        screw_step=float(molecule["screw_step_deg"]),
+        re_energy=float(molecule["isolated_helix_energy_ev"]),
+        data_dir=metadata_path.parent,
+        interactions=interactions,
+        files=MappingProxyType(dict(files)),
+    )
 
 # ----------------------------------------------------------------------
 
