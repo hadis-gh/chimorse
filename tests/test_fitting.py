@@ -76,7 +76,7 @@ def test_prune_by_magnitude_returns_matching_lengths():
 
 def test_create_morse_model_dispatch():
     A, _ = _basis()
-    mol = MoleculeInfo("TEST", 20, 0.0)
+    mol = MoleculeInfo("TEST", 20, 0.0, "", "", "")
     zeros = np.zeros(A.shape[1])
 
     model, coeffs = create_morse_model(None, mol, "EP", A, 2, 1, zeros, zeros)
@@ -129,7 +129,7 @@ def test_generate_fourier_morse_recovers_constant_potential():
                 )
     df = pd.DataFrame(rows)
 
-    mol = MoleculeInfo("TEST", 20, 0.0)
+    mol = MoleculeInfo("TEST", 20, 0.0, "", "", "")
     harmonic_ceils = {"EP": (2, 1)}
 
     df_model = generate_fourier_morse_data(
