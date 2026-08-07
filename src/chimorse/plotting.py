@@ -6,6 +6,7 @@ parity plots, and pruning analysis of the chiral Morse model.
 """
 
 import numpy as np
+import pandas as pd
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 import matplotlib.ticker as mticker
@@ -49,22 +50,23 @@ def _angle_label(x_axis):
 # ----------------------------------------------------------------------
 
 def _select_sample_curve(df, row):
-    """Select the E(r) curve from df matching row's chi/psi (and z if present);
-       return the subset and a legend label."""
-    group_cols = [c for c in ('chi', 'psi', 'z') if c in df.columns]
+    """Select the E(r) curve matching an orientation (and zeta, when present)."""
+    group_cols = [c for c in ("phi1", "phi2", "zeta") if c in df.columns]
+    if not group_cols:
+        raise ValueError("No orientation columns available to select an E(r) curve")
 
-    mask = df[group_cols[0]] == row[group_cols[0]]
-    for col in group_cols[1:]:
-        mask &= df[col] == row[col]
+    mask = np.ones(len(df), dtype=bool)
+    for col in group_cols:
+        mask &= df[col].to_numpy() == row[col]
 
     labels = {
-        'chi': fr'$\chi$={row["chi"]:.0f}',
-        'psi': fr'$\psi$={row["psi"]:.0f}',
+        "phi1": fr'$\varphi_1$={row["phi1"]:.0f}',
+        "phi2": fr'$\varphi_2$={row["phi2"]:.0f}',
     }
-    if 'z' in group_cols:
-        labels['z'] = fr'$\zeta$={row["z"]}'
-    label = ', '.join(labels[col] for col in group_cols)
+    if "zeta" in group_cols:
+        labels["zeta"] = fr'$\zeta$={row["zeta"]}'
 
+    label = ", ".join(labels[col] for col in group_cols)
     return df.loc[mask], label
 
 # ----------------------------------------------------------------------
@@ -95,38 +97,45 @@ def apply_compact_style(ax, linewidth=0.6, tick_width=0.5):
 # Surface helpers
 # ======================================================================
 
-def make_surface(data, aggfunc='min', target='e'):
-    """Pivot data into a chi x psi grid."""
+def make_surface(data, aggfunc="min", target="e", r_max=12):
+    """Pivot data into a psi-by-chi surface.
 
-    grid = np.sort(data['chi'].unique())
+    For minimum-energy surfaces, first select the minimum in r for each
+    physical orientation, then average symmetry-equivalent points that map
+    to the same (chi, psi).
+    """
+    required = {"chi", "psi", target}
+    missing = required - set(data.columns)
+    if missing:
+        raise ValueError(f"Missing columns required for surface: {sorted(missing)}")
 
-    if target in ('e', 'r'):
-        data_min = extract_energy_minimums(
-            data[['phi1', 'phi2', 'r', 'chi', 'psi', 'e']],
-            r_max=12
-        )
+    if data.empty:
+        return pd.DataFrame()
 
-        values = 'e' if target == 'e' else 'r'
+    work = data.copy()
 
-        surface = data_min.pivot_table(
-            index='psi',
-            columns='chi',
-            values=values,
-            aggfunc='mean'
-        ).reindex(index=grid, columns=grid)
-
+    if target in ("e", "r") and aggfunc == "min":
+        work = extract_energy_minimums(work, r_max=r_max)
+        if work.empty:
+            return pd.DataFrame()
+        pivot_aggfunc = "mean"
     else:
-        surface = data.pivot_table(
-            index='psi',
-            columns='chi',
-            values=target,
-            aggfunc=aggfunc
-        ).reindex(index=grid, columns=grid)
+        pivot_aggfunc = aggfunc
+
+    chi_grid = np.sort(work["chi"].unique())
+    psi_grid = np.sort(work["psi"].unique())
+
+    surface = work.pivot_table(
+        index="psi",
+        columns="chi",
+        values=target,
+        aggfunc=pivot_aggfunc,
+    ).reindex(index=psi_grid, columns=chi_grid)
 
     return surface.interpolate(
         axis=0,
-        method='nearest',
-        limit_direction='both'
+        method="nearest",
+        limit_direction="both",
     )
 
 # ----------------------------------------------------------------------
@@ -213,7 +222,7 @@ def plot_ER_model_compare(Er_raw, potential_models, phi_vals=(0, 0),
 def plot_ER(df, show_zoom_box=False, show_sample_curves=True, alpha_fit=False, save_path=None, vertical_r=None):
     """Plot E(r) scatter for all data (left) and for the per-orientation minima (right),
        with optional zoom box and sample curves."""
-    alpha_dot = 0.002 if 'z' in df.columns else 0.02
+    alpha_dot = 0.002 if 'zeta' in df.columns else 0.02
 
     E_min_df = extract_energy_minimums(df, r_max=12)
 
@@ -350,63 +359,78 @@ def plot_ER_orientations(df, orientations, color_by='chi', save_path=None):
     plt.show()
 
 # ----------------------------------------------------------------------
-
 def plot_ER_raw_all(molecule, zero_zeta,
                     colors=INTERACTION_CMAPS,
                     choice_color=.58,
                     save_path=None):
     """Plot the min/max E(r) envelope of minimum-energy curves for each interaction type."""
+
     fig, ax = plt.subplots(figsize=(3.2, 2.8))
 
-    styles = {'EP': '-', 'EA': '--', 'OP': '-.', 'OA': ':'}
     interaction_sort = {'EP': 2, 'EA': 3, 'OP': 1, 'OA': 0}
+    all_bounds = []
 
     for interaction in colors:
         color = plt.get_cmap(colors[interaction])(choice_color)
         df = load_data(molecule, interaction, zero_zeta)
-        cols = [col for col in df.columns if col not in ['e', 'r']]
-        df_min = df.loc[df.groupby(cols)['e'].idxmin()].reset_index(drop=True)
-        bounds = df_min.groupby('r')['e'].agg(['min', 'max']).reset_index()
-        bounds['min']  = gaussian_filter1d(bounds['min'], sigma=1)
-        bounds['max'] = gaussian_filter1d(bounds['max'], sigma=1)
-        current_z = interaction_sort[interaction]
-        # center = df_min.groupby('r')['e'].median().reset_index()
-        # ax.plot(center['r'], center['e'], lw=1.8)
-        ax.plot(bounds['r'], bounds['min'], c=color,
-                lw=1.8, alpha=.9, zorder=current_z)
-        ax.plot(bounds['r'], bounds['max'], c=color, label=interaction,
-                lw=1.8, alpha=.9, zorder=current_z)
-        ax.fill_between(
-            bounds['r'], bounds['min'], bounds['max'],
-            alpha=.08, color=color,
-            rasterized=True,
-            zorder=current_z
+
+        df_min = extract_energy_minimums(df, r_max=12)
+
+        bounds = (
+            df_min.groupby("r")["e"]
+            .agg(["min", "max"])
+            .reset_index()
         )
-    ax.set_xlabel(r'$r_e$ (Å)')
-    ax.set_ylabel('D (eV)')
 
-    df_OA = load_data(molecule, 'OA', zero_zeta)
-    E_min_OA = extract_energy_minimums(df_OA, r_max=12)
+        bounds["min"] = gaussian_filter1d(bounds["min"], sigma=1)
+        bounds["max"] = gaussian_filter1d(bounds["max"], sigma=1)
 
-    xlim = (extract_ER_range(E_min_OA, 'r'))
-    ylim = (extract_ER_range(E_min_OA, 'e'))
+        all_bounds.append(bounds)
+        current_z = interaction_sort[interaction]
+
+        ax.plot(
+            bounds["r"], bounds["min"],
+            c=color, lw=1.8, alpha=.9, zorder=current_z,
+        )
+        ax.plot(
+            bounds["r"], bounds["max"],
+            c=color, label=interaction,
+            lw=1.8, alpha=.9, zorder=current_z,
+        )
+        ax.fill_between(
+            bounds["r"], bounds["min"], bounds["max"],
+            alpha=.08, color=color, rasterized=True, zorder=current_z,
+        )
+
+    ax.set_xlabel(r"$r_e$ (Å)")
+    ax.set_ylabel("D (eV)")
+
+    plot_bounds = pd.concat(all_bounds, ignore_index=True)
+    xlim = (
+        plot_bounds["r"].min() - .5,
+        plot_bounds["r"].max() + .5,
+    )
+
+    emin = plot_bounds["min"].min()
+    ylim = (1.1 * emin, 0.1)
 
     ax.set_xlim(xlim)
     ax.set_ylim(ylim)
-
     ax.set_yticks(np.linspace(ylim[0], ylim[1], num=4))
-    ax.yaxis.set_major_formatter(mticker.FormatStrFormatter('%.1f'))
+    ax.yaxis.set_major_formatter(mticker.FormatStrFormatter("%.1f"))
 
-    ax.legend(loc='lower right', fontsize=10)
+    ax.legend(loc="lower right", fontsize=10)
 
     apply_style(ax, spine=True, grid=False, hide_top_right=False)
     ax.tick_params(width=0.4)
 
     plt.tight_layout()
+
     if save_path is not None:
         save_dir = Path(save_path).parent
         save_dir.mkdir(parents=True, exist_ok=True)
-        plt.savefig(save_dir / "R_opt_all.pdf", bbox_inches='tight')
+        plt.savefig(save_dir / "R_opt_all.pdf", bbox_inches="tight")
+
     plt.show()
 
 # ======================================================================
@@ -416,6 +440,10 @@ def plot_ER_raw_all(molecule, zero_zeta,
 def plot_energy_surfaces(df, screw_step,
                          mode="chi", cmap="plasma", save_path=None, fix_r=9):
     """Plot energy surfaces at fixed r and at the minimum energy, in the chi or phi1 frame."""
+    if mode not in ('chi', 'phi1', 'phi'):
+        raise ValueError("mode must be 'chi' or 'phi1'")
+    mode = 'phi1' if mode == 'phi' else mode
+
     tol = 1e-6
     df_fix = df[(df['r'] > fix_r - tol) &
                   (df['r'] < fix_r + tol)]
@@ -592,7 +620,7 @@ def plot_energy_distance_vs_chi_psi(
     plt.show()
 
 # ----------------------------------------------------------------------
-
+    
 def plot_energy_vs_chi_psi(
     df_raw, screw_step, x_axis='chi', cut_values='auto', n_cuts=6, tol=0.25,
     cmap_name='viridis', save_path=None):
@@ -682,7 +710,6 @@ def plot_energy_surfaces_difference(df, screw_step, MODEL, harmonics, mode="chi"
             im = ax.imshow(E, origin='lower', aspect='equal', vmin=-.02, vmax=.02, cmap='twilight_shifted')
         else:
             im = ax.imshow(E, origin='lower', aspect='equal', cmap='twilight_shifted')
-        im = ax.imshow(E, origin='lower', aspect='equal', cmap='twilight_shifted')
         ax.set_xlabel(r'$\varphi_1$ (°)')
         ax.set_ylabel(r'$\varphi_2$ (°)')
         ax.set_title(title)
@@ -943,8 +970,9 @@ def plot_energy_vs_chi_psi_compact(df_raw, interaction, screw_step, x_axis='chi'
     ax.set_xlim(0, 360)
 
 
+    cut_symbol = r'\psi' if x_axis == 'chi' else r'\chi'
     for idx, val in enumerate(active_cuts):
-        ax.text(x_txt, y_txt - idx * 0.15, f"$\\psi$={val}°",
+        ax.text(x_txt, y_txt - idx * 0.15, f"${cut_symbol}$={val}°",
                     color=cmap(norm(val)), fontsize=7, transform=ax.transAxes,
                     va='top', ha='left')
     apply_compact_style(ax, tick_width=0)
@@ -959,29 +987,37 @@ def plot_energy_surfaces_chi_psi(df, interaction, screw_step,
                                  colors=INTERACTION_CMAPS,
                                  target='e', fix_r=None, model_df=None,
                                  plot_type='reference', left_label=True, save_path=None):
-    """Plot the E(chi,psi) heatmap for the data, model, or their difference (plot_type), 
-       at fixed r or at the minimum energy."""
+    """Plot an E(chi, psi) surface at fixed r or at the minimum energy."""
     colormap = colors[interaction]
-
     tol = 1e-6
+
     df = expand_chi_psi_by_screw_periodicity(df, screw_step)
     aggfunc = 'mean' if target == 'alpha' else 'min'
 
-    if fix_r:
+    if fix_r is not None:
         df_plot = df[np.abs(df['r'] - fix_r) < tol]
         E = make_surface(df_plot, 'mean', target=target)
     else:
         E = make_surface(df, aggfunc, target=target)
 
     if plot_type == 'difference':
+        if model_df is None:
+            raise ValueError("model_df is required when plot_type='difference'")
+
         model_df = expand_chi_psi_by_screw_periodicity(model_df, screw_step)
-        if fix_r:
+
+        if fix_r is not None:
             model_df_plot = model_df[np.abs(model_df['r'] - fix_r) < tol]
             E_model = make_surface(model_df_plot, 'mean', target=target)
         else:
             E_model = make_surface(model_df, aggfunc, target=target)
+
+        E, E_model = E.align(E_model, join='inner', axis=None)
         E = E - E_model
         colormap = 'twilight_shifted'
+
+    if E.empty:
+        raise ValueError("No data available for the requested chi-psi surface")
 
     fig, ax = plt.subplots(1, 1, figsize=(3, 2.8))
 
@@ -991,15 +1027,17 @@ def plot_energy_surfaces_chi_psi(df, interaction, screw_step,
     if left_label:
         ax.set_yticks([0, 90, 180, 270, 360])
     else:
-        ax.set_yticklabels('')
+        ax.set_yticklabels([])
 
     apply_style(ax, spine=True, grid=False, hide_top_right=False)
     ax.tick_params(width=0.4)
 
     shrink_val = .704 if left_label else .638
     cbar_label = 'ΔE (eV)' if plot_type == 'difference' else 'E (eV)'
-    cbar = fig.colorbar(im, ax=ax, shrink=shrink_val, pad=0.0008,
-                       orientation='horizontal', location='top')
+    cbar = fig.colorbar(
+        im, ax=ax, shrink=shrink_val, pad=0.0008,
+        orientation='horizontal', location='top'
+    )
     cbar.ax.tick_params(direction='in', length=6.4, width=0.2)
     cbar.set_label(cbar_label, labelpad=7)
     cbar.outline.set_linewidth(0.4)
@@ -1022,6 +1060,8 @@ def plot_chi_psi_panel(df_org, interaction, screw_step,
        and E vs psi line cuts (right, at fixed chi), each with inline colored labels."""
 
     base_cols = ['phi1', 'phi2', 'r', 'chi', 'psi', 'e']
+    if 'zeta' in df_org.columns:
+        base_cols.append('zeta')
 
     if target == 'alpha' and 'alpha' in df_org.columns:
         base_cols.append('alpha')
@@ -1311,67 +1351,151 @@ def plot_parity(df_data, df_model, interaction, alpha_fit,
 
 # ----------------------------------------------------------------------
 
-def plot_parity_angle_color(df_data, df_model, color_by, zoom_in=None, save_path=None, scatter_size=1):
-    """Parity scatter (model vs reference) colored by chi, with a 1:1 reference line."""
+# ----------------------------------------------------------------------
 
-    cols_no_e = [c for c in df_data.columns if c not in ('e', 'psi', 'chi')]
-    model_subset = df_model.merge(
-        df_data[cols_no_e].drop_duplicates(),
-        on=cols_no_e,
-        how='inner'
-    ).copy()
+def plot_parity_angle_color(
+    df_data,
+    df_model,
+    color_by,
+    zoom_in=None,
+    save_path=None,
+    scatter_size=1,
+):
+    """Parity scatter of model vs reference energy, colored by a selected variable."""
 
-    sort_cols = cols_no_e + [c for c in ('psi', 'chi') if c in df_data.columns]
-    E_model = model_subset.sort_values(by=sort_cols).reset_index(drop=True)
-    E_ref  = df_data.sort_values(by=sort_cols).reset_index(drop=True)
+    # Coordinates that uniquely define one energy point
+    grid_cols = ["phi1", "phi2", "r"]
 
-    cmap = plt.get_cmap('twilight')
-    norm = plt.Normalize(E_model[color_by].min(), E_model[color_by].max())
+    if "zeta" in df_data.columns and "zeta" in df_model.columns:
+        grid_cols.append("zeta")
 
-    fig, ax = plt.subplots(1, 1, figsize=(2.6, 2.5))
+    if color_by not in df_data.columns:
+        raise ValueError(
+            f"{color_by!r} not found in reference data. "
+            f"Available columns: {list(df_data.columns)}"
+        )
 
-    ax.scatter(
-        E_ref['e'], E_model['e'],
-        s=scatter_size, alpha=.3,
-        c=E_model[color_by],
-        cmap=cmap, norm=norm,
-        linewidths=0, rasterized=True, edgecolors='none'
+    # Align model and reference explicitly on the same physical grid
+    ref_cols = grid_cols + ["e"]
+
+    if color_by not in ref_cols:
+        ref_cols.append(color_by)
+
+    aligned = df_data[ref_cols].merge(
+        df_model[grid_cols + ["e"]],
+        on=grid_cols,
+        how="inner",
+        suffixes=("_ref", "_model"),
+        validate="one_to_one",
     )
 
-    sm = plt.cm.ScalarMappable(norm=norm, cmap=cmap)
-    cbar = plt.colorbar(sm, ax=ax, pad=0.05, shrink=.7)
-    cbar.ax.tick_params(direction='in', width=.2)
-    cbar.outline.set_color('grey')
-    cbar.outline.set_linewidth(.5)
+    if aligned.empty:
+        raise ValueError(
+            "Reference and model data have no matching grid points."
+        )
 
-    lim_min = np.min([E_ref['e'].min(), E_model['e'].min()])
-    lim_max = np.max([E_ref['e'].max(), E_model['e'].max()])
-    if zoom_in!=None:
+    labels = {
+        "phi1": r"$\varphi_1$ (°)",
+        "phi2": r"$\varphi_2$ (°)",
+        "chi": r"$\chi$ (°)",
+        "psi": r"$\psi$ (°)",
+        "r": r"$r$ (Å)",
+        "zeta": r"$\zeta$ (Å)",
+    }
+
+    color_label = labels.get(color_by, color_by)
+
+    cmap = plt.get_cmap("twilight")
+    norm = plt.Normalize(
+        aligned[color_by].min(),
+        aligned[color_by].max(),
+    )
+
+    fig, ax = plt.subplots(
+        1, 1,
+        figsize=(5, 4.2),
+    )
+
+    ax.scatter(
+        aligned["e_ref"],
+        aligned["e_model"],
+        c=aligned[color_by],
+        cmap=cmap,
+        norm=norm,
+        s=scatter_size,
+        alpha=.4,
+        linewidths=0,
+        edgecolors="none",
+        rasterized=True,
+    )
+
+    lim_min = min(
+        aligned["e_ref"].min(),
+        aligned["e_model"].min(),
+    )
+
+    lim_max = max(
+        aligned["e_ref"].max(),
+        aligned["e_model"].max(),
+    )
+
+    if zoom_in is not None:
         lim_max = zoom_in
+
     lims = [lim_min, lim_max]
 
     ax.set_xlim(lims)
     ax.set_ylim(lims)
-    ax.set_aspect('equal')
 
-    ax.plot(lims, lims, '--', color='pink', linewidth=1, zorder=1)
+    # 1:1 line
+    ax.plot(
+        lims,
+        lims,
+        "--",
+        color="grey",
+        lw=.8,
+        zorder=0,
+    )
 
-    ticks = np.linspace(lims[0] + 0.05, lims[1] - 0.05, num=5)
-    ax.set_xticks(ticks)
-    ax.set_yticks(ticks)
-    ax.xaxis.set_major_formatter('{x:.1f}')
-    ax.yaxis.set_major_formatter('{x:.1f}')
+    ax.set_aspect("equal")
 
-    ax.set_xlabel('Reference (eV)')
-    ax.set_ylabel('Model (eV)')
+    ax.set_xlabel("Reference (eV)")
+    ax.set_ylabel("Model (eV)")
 
-    apply_style(ax, spine=True, grid=False, hide_top_right=False)
-    ax.tick_params(width=0.4)
+    # Colorbar
+    sm = mpl.cm.ScalarMappable(
+        norm=norm,
+        cmap=cmap,
+    )
+    sm.set_array([])
+
+    cbar = fig.colorbar(
+        sm,
+        ax=ax,
+        pad=0.03,
+    )
+
+    cbar.set_label(color_label)
+    cbar.ax.tick_params(direction="in")
+
+    apply_style(
+        ax,
+        spine=True,
+        grid=False,
+        hide_top_right=False,
+    )
+    ax.tick_params(width=.4)
 
     plt.tight_layout()
 
     if save_path is not None:
-        plt.savefig(save_path / "parity_plot.pdf", bbox_inches='tight')
+        save_path = Path(save_path)
+        save_path.mkdir(parents=True, exist_ok=True)
+
+        plt.savefig(
+            save_path / f"parity_angle_{color_by}.pdf",
+            bbox_inches="tight",
+        )
 
     plt.show()
 
