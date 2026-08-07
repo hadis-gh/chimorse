@@ -29,57 +29,105 @@ def circular_distance_deg(a, b):
 # ----------------------------------------------------------------------
 
 def infer_screw_direction(df):
-    """Infer screw direction from chi definition in data."""
-    sample = df.tail(100)
-    chi_minus = (sample['phi1'] - sample['phi2']) % 360
-    chi_plus = (sample['phi1'] + sample['phi2']) % 360
+    """Infer screw direction (+1 or -1) from the stored chi coordinate."""
+    required = {"phi1", "phi2", "chi"}
+    missing = required - set(df.columns)
+    if missing:
+        raise ValueError(f"Missing columns required to infer screw direction: {sorted(missing)}")
 
-    if (sample['chi'] == chi_minus).all(): return 1
-    elif (sample['chi'] == chi_plus).all(): return -1
-    else: raise ValueError("Cannot determine screw direction from chi")
+    sample = df[["phi1", "phi2", "chi"]].dropna().tail(100)
+    if sample.empty:
+        raise ValueError("Cannot infer screw direction from an empty dataframe")
+
+    chi_equal = (sample["phi1"] - sample["phi2"]) % 360
+    chi_opposite = (sample["phi1"] + sample["phi2"]) % 360
+
+    err_equal = circular_distance_deg(sample["chi"].to_numpy(), chi_equal.to_numpy())
+    err_opposite = circular_distance_deg(sample["chi"].to_numpy(), chi_opposite.to_numpy())
+
+    if np.all(err_equal < 1e-8):
+        return 1
+    if np.all(err_opposite < 1e-8):
+        return -1
+
+    raise ValueError("Cannot determine screw direction from chi")
 
 # ----------------------------------------------------------------------
 
 def extract_energy_minimums(df, r_max=12):
-    """Extract rows at the minimum energy for each (chi, psi, class, ...) subject to r <= r_max."""
-    cols_no_er = [c for c in df.columns if c not in ('e', 'r')]
-    idx = df.groupby(cols_no_er)['e'].idxmin()
-    df_lowest_e = df.loc[idx].reset_index(drop=True)
-    return df_lowest_e[df_lowest_e['r'] <= r_max]
+    """Return the minimum-energy row for each physical angular configuration."""
+    required = {"phi1", "phi2", "r", "e"}
+    missing = required - set(df.columns)
+    if missing:
+        raise ValueError(f"Missing columns required for energy minima: {sorted(missing)}")
+
+    data = df.loc[df["r"] <= r_max].copy()
+    if data.empty:
+        return data.reset_index(drop=True)
+
+    group_cols = ["phi1", "phi2"]
+    if "zeta" in data.columns:
+        group_cols.append("zeta")
+
+    idx = data.groupby(group_cols, dropna=False)["e"].idxmin()
+    return data.loc[idx].reset_index(drop=True)
 
 # ----------------------------------------------------------------------
 
 def extract_energy_comparison(df_data, df_model):
-    """Align model and reference on the same grid; return full energy vectors, well depths D, and equilibrium distances r_e for both."""
+    """Align model and reference on the same grid and compare E, D, and r_e."""
+    use_zeta = "zeta" in df_data.columns or "zeta" in df_model.columns
+    if use_zeta and not ("zeta" in df_data.columns and "zeta" in df_model.columns):
+        raise ValueError("df_data and df_model must either both contain zeta or both omit it")
 
-    energy_cols = ['phi1', 'phi2', 'r', 'chi', 'psi', 'e']
-    grid_cols = ['phi1', 'phi2', 'r']
+    grid_cols = ["phi1", "phi2"]
+    if use_zeta:
+        grid_cols.append("zeta")
+    grid_cols.append("r")
+
+    energy_cols = grid_cols + ["chi", "psi", "e"]
 
     model_subset = df_model.merge(
         df_data[grid_cols].drop_duplicates(),
         on=grid_cols,
-        how='inner'
+        how="inner",
     ).copy()
 
-    sorted_model = model_subset[energy_cols].sort_values(by=grid_cols)
-    sorted_data  = df_data[energy_cols].sort_values(by=grid_cols)
+    sorted_model = model_subset[energy_cols].sort_values(by=grid_cols).reset_index(drop=True)
+    sorted_data = (
+        df_data[energy_cols]
+        .merge(model_subset[grid_cols].drop_duplicates(), on=grid_cols, how="inner")
+        .sort_values(by=grid_cols)
+        .reset_index(drop=True)
+    )
+
+    if len(sorted_data) != len(sorted_model):
+        raise ValueError("Reference and model grids do not align one-to-one")
 
     df_min_model = extract_energy_minimums(sorted_model, r_max=12)
-    df_min_data  = extract_energy_minimums(sorted_data,  r_max=12)
+    df_min_data = extract_energy_minimums(sorted_data, r_max=12)
 
-    key_cols = ['phi1', 'phi2', 'chi', 'psi']
+    key_cols = ["phi1", "phi2"]
+    if use_zeta:
+        key_cols.append("zeta")
 
-    df_min_model = df_min_model.sort_values(by=key_cols)
-    df_min_data  = df_min_data.sort_values(by=key_cols)
+    min_model = df_min_model[key_cols + ["e", "r"]].rename(
+        columns={"e": "e_model", "r": "r_model"}
+    )
+    min_data = df_min_data[key_cols + ["e", "r"]].rename(
+        columns={"e": "e_data", "r": "r_data"}
+    )
 
-    D_model = df_min_model['e'].values
-    D_data  = df_min_data['e'].values
+    minima = min_data.merge(min_model, on=key_cols, how="inner")
+    if len(minima) != len(min_data) or len(minima) != len(min_model):
+        raise ValueError("Reference and model minima do not align one-to-one")
 
-    re_model = df_min_model['r'].values
-    re_data  = df_min_data['r'].values
-
-    E_data  = sorted_data['e'].values
-    E_model = sorted_model['e'].values
+    E_data = sorted_data["e"].to_numpy()
+    E_model = sorted_model["e"].to_numpy()
+    D_data = minima["e_data"].to_numpy()
+    D_model = minima["e_model"].to_numpy()
+    re_data = minima["r_data"].to_numpy()
+    re_model = minima["r_model"].to_numpy()
 
     return E_data, E_model, D_model, D_data, re_model, re_data
 
