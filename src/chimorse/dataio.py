@@ -4,36 +4,35 @@ dataio.py
 Data loading and pre-processing utilities.
 """
 
-import pandas as pd
 import json
 from pathlib import Path
+
 import numpy as np
-import json
+import pandas as pd
 
 from .analysis import get_screw_dir
 from .fourier import create_fourier_terms_2d
-
-# ----------------------------------------------------------------------
-
-# Reference data lives in <repo>/data/<molecule>/E_all_<interaction>.dat,
-# i.e. as a sibling of the examples/ directory containing the notebooks.
-# Resolve it relative to this file instead of a hard-coded absolute path.
-REPO_ROOT = Path(__file__).resolve().parents[2]
-DATA_DIR = REPO_ROOT / "data"
+from .config import MoleculeInfo
 
 # ----------------------------------------------------------------------
 
 def expand_data(df, r_far=20):
-    """Append a far-distance point (r=r_far, e=0) for each angle combination, for asymptotic anchoring."""
-    angle_cols = [c for c in df.columns if c not in ('r', 'e')]
-    combos = df[angle_cols].drop_duplicates()
+    """Append one asymptotic point (r=r_far, e=0) for each angular configuration."""
+    config_cols = [c for c in ("phi1", "phi2", "zeta", "chi", "psi") if c in df.columns]
+    if not {"phi1", "phi2"}.issubset(config_cols):
+        raise ValueError("expand_data requires phi1 and phi2 columns")
 
-    block = combos.copy()
-    block['r'] = r_far
-    block['e'] = 0.0
+    block = df[config_cols].drop_duplicates().copy()
+    block["r"] = r_far
+    block["e"] = 0.0
 
-    df_expanded = pd.concat([df, block], ignore_index=True)
-    df_expanded.sort_values(['phi1', 'phi2', 'r'], inplace=True)
+    # pair_energy is undefined for synthetic asymptotic points.
+    if "pair_energy" in df.columns:
+        block["pair_energy"] = np.nan
+
+    df_expanded = pd.concat([df, block], ignore_index=True, sort=False)
+    sort_cols = [c for c in ("phi1", "phi2", "zeta", "r") if c in df_expanded.columns]
+    df_expanded.sort_values(sort_cols, inplace=True)
     df_expanded.reset_index(drop=True, inplace=True)
 
     print(f"Data expanded: {len(df)} → {len(df_expanded)} rows")
@@ -41,38 +40,52 @@ def expand_data(df, r_far=20):
 
 # ----------------------------------------------------------------------
 
-def load_data(molecule, interaction, zero_zeta=True):
-    """Load raw E(phi1, phi2, z, r) data, derive chi/psi from phi1/phi2, and shift energy by -2*re_energy."""
+def load_data(molecule: MoleculeInfo, 
+              interaction: str, 
+              zero_zeta: bool = True,
+) -> pd.DataFrame:
+    """Load pair energies and calculate helix-pair binding energies."""
+
+    interaction = interaction.upper()
+
+    if interaction not in molecule.interactions:
+        raise ValueError(
+            f"Invalid interaction {interaction!r} for {molecule.name}. "
+            f"Valid interactions: {sorted(molecule.interactions)}"
+        )
+
     screw_dir = get_screw_dir(interaction)
 
-    data_path = DATA_DIR / molecule.path / molecule.name / f"E_all_{interaction}.dat"
+    data_path = molecule.data_file(interaction)
 
     if not data_path.is_file():
         raise FileNotFoundError(
-            f"Reference data not found at: {data_path}\n"
-            f"Expected layout: <repo>/data/<molecule>/E_all_<interaction>.dat "
-            f"for molecule '{molecule.name}' and interaction '{interaction}'."
+            f"Reference data not found at: {data_path}"
         )
 
-    df = pd.read_csv(data_path, sep='\t',
-                     names=['phi1', 'phi2', 'z', 'r', 'e'])
-    df['chi'] = (df['phi1'] - screw_dir * df['phi2']) % 360
-    df['psi'] = (df['phi1'] + screw_dir * df['phi2']) % 360
-    df['e'] -= molecule.re_energy * 2
+    df = pd.read_csv(
+        data_path,
+        sep="\t",
+        names=["phi1", "phi2", "zeta", "r", "pair_energy"],
+    )
+
+    df["chi"] = (df["phi1"] - screw_dir * df["phi2"]) % 360
+
+    df["psi"] = (df["phi1"] + screw_dir * df["phi2"]) % 360
+
+    # e: binding energy
+    df["e"] = (
+        df["pair_energy"] - 2.0 * molecule.re_energy
+    )
 
     if zero_zeta:
-        df = df[df['z'] == 0].drop(columns=['z']).copy()
+        df = df[df['zeta'] == 0].drop(columns=['zeta']).copy()
 
     return df
 
 # ======================================================================
 # Export configuration to C++ Molecular Dynamics Engine
 # ======================================================================
-import json
-from pathlib import Path
-
-import numpy as np
-
 
 VALID_INTERACTIONS = {"EP", "EA", "OP", "OA"}
 
@@ -241,7 +254,7 @@ def export_chimorse_combined_json(
         "angle_units": "radian",
 
         "angle_definition": {
-            "chi": "phi2 - h * phi1",
+            "chi": "phi1 - h * phi2",
             "psi": "phi1 + h * phi2",
         },
 
