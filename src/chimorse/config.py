@@ -9,7 +9,7 @@ import seaborn as sns
 from pathlib import Path
 from dataclasses import dataclass
 from types import MappingProxyType
-from typing import Mapping
+from typing import Mapping, Optional, Union
 from matplotlib.colors import ListedColormap
 
 # ----------------------------------------------------------------------
@@ -86,7 +86,7 @@ class MoleculeInfo:
 
 def load_molecule_info(
     molecule_id: str,
-    metadata_path: Path | str | None = None,
+    metadata_path: Optional[Union[Path, str]] = None,
 ) -> MoleculeInfo:
     """Load dataset metadata from ``data/<molecule_id>/metadata.json``."""
     if metadata_path is None:
