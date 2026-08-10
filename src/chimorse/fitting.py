@@ -161,16 +161,25 @@ def fit_alpha_morse(df, phi_vals, screw_dir, alpha_init=1.2, smooth_factor=None)
 # ----------------------------------------------------------------------
 
 def fit_alpha_values(df, interaction):
-    """Run fit_alpha_morse over every (phi1, phi2) combination and 
-       return the array of fitted alpha values."""
+    """Fit alpha values in the same angular order as the energy minima."""
     screw_dir = get_screw_dir(interaction)
-    phi1_range = df['phi1'].unique()
-    phi2_range = df['phi2'].unique()
 
-    results = [fit_alpha_morse(df, (phi1, phi2), screw_dir, smooth_factor=None)
-               for phi1, phi2 in product(phi1_range, phi2_range)]
+    E_min_df = extract_energy_minimums(df, r_max=12)
 
-    return pd.concat(results, ignore_index=True)['alpha'].values
+    results = [
+        fit_alpha_morse(
+            df,
+            (row.phi1, row.phi2),
+            screw_dir,
+            smooth_factor=None,
+        )
+        for row in E_min_df.itertuples(index=False)
+    ]
+
+    return pd.concat(
+        results,
+        ignore_index=True
+    )['alpha'].to_numpy()
 
 # ----------------------------------------------------------------------
 
