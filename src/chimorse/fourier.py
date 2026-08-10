@@ -8,21 +8,49 @@ used for the angular dependence of the anisotropic Morse parameters.
 import numpy as np
 
 # ----------------------------------------------------------------------
+def count_fourier_coeffs(
+    h_chi,
+    h_psi,
+    symm_chi,
+    screw_step,
+    after_symm=True,
+):
+    """Count Fourier coefficients before or after symmetry adaptation."""
 
-def count_fourier_coeffs(h_chi, h_psi, symm_chi, screw_step, after_symm=True):
-    """Number of Fourier coefficients for the given harmonic orders, before or after screw-symmetrization."""
     if after_symm:
+
         if symm_chi:
-            return 1 + h_chi + 2*h_psi + 2*h_chi*h_psi
-        else:
-            return 1 + 2*h_chi + 2*h_psi + 4*h_chi*h_psi
-    else:
-        k0 = int(round(360 / (2 * screw_step)))
-        h_psi *= k0
-        if symm_chi:
-            return 1 + h_chi + 2*h_psi + 2*h_chi*h_psi
-        else:
-            return 1 + 2*h_chi + 2*h_psi + 4*h_chi*h_psi
+            # Interchange symmetry: f(chi, psi) = f(-chi, psi)
+            # => all sin(m*chi) terms vanish.
+            return (
+                1
+                + h_chi
+                + 2 * h_psi
+                + 2 * h_chi * h_psi
+            )
+
+        return (
+            1
+            + 2 * h_chi
+            + 2 * h_psi
+            + 4 * h_chi * h_psi
+        )
+
+    # Before symmetry adaptation:
+    k0 = int(round(360 / (2 * screw_step)))
+    n_psi = k0 * h_psi
+
+    # Full unrestricted 2D Fourier basis:
+    # 1 constant
+    # 2*h_chi pure chi terms
+    # 2*n_psi pure psi terms
+    # 4*h_chi*n_psi coupled terms
+    return (
+        1
+        + 2 * h_chi
+        + 2 * n_psi
+        + 4 * h_chi * n_psi
+    )
 
 # ----------------------------------------------------------------------
 
