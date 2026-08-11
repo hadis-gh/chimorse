@@ -133,37 +133,128 @@ def extract_energy_comparison(df_data, df_model):
 
 # ----------------------------------------------------------------------
 
-def compute_energy_errors(df_data, df_model, print_errors=True):
-    """Compute RMSE and mean/max residuals for E, D, and r_e between model and reference, optionally printing them."""
-    E_data, E_model, D_model, D_data, re_model, re_data = extract_energy_comparison(df_data, df_model)
+def compute_near_equilibrium_energy_rmse(df_data, df_model, delta_r=1.0, r_max=12):
+    """ Compute the energy RMSE using only points close to the reference
+    equilibrium distance of each angular configuration. |r - r_e,ref| <= delta_r  """
 
-    Delta_E  = E_model - E_data
-    Delta_D  = D_model - D_data          # in eV
-    Delta_re = re_model - re_data        # in Å
+    if delta_r <= 0:
+        raise ValueError("delta_r must be positive")
+
+    # Coordinates defining one angular configuration
+    orientation_cols = ["phi1", "phi2"]
+
+    use_zeta = "zeta" in df_data.columns or "zeta" in df_model.columns
+
+    if use_zeta:
+        if not ("zeta" in df_data.columns and "zeta" in df_model.columns):
+            raise ValueError(
+                "df_data and df_model must either both contain zeta "
+                "or both omit it"
+            )
+
+        orientation_cols.append("zeta")
+
+    # Find the reference equilibrium distance for each orientation
+    df_min_data = extract_energy_minimums(df_data, r_max=r_max)
+
+    re_reference = (df_min_data[orientation_cols + ["r"]].rename(columns={"r": "re_ref"}))
+
+    # Align reference and model energies on the physical grid
+    grid_cols = orientation_cols + ["r"]
+
+    ref = (df_data[grid_cols + ["e"]].rename(columns={"e": "e_ref"}))
+
+    model = (df_model[grid_cols + ["e"]].rename(columns={"e": "e_model"}))
+
+    aligned = ref.merge(model, on=grid_cols, how="inner", validate="one_to_one")
+
+    if aligned.empty:
+        raise ValueError(
+            "Reference and model data have no matching grid points"
+        )
+
+    # Attach the equilibrium distance belonging to each orientation.
+    aligned = aligned.merge(
+        re_reference,
+        on=orientation_cols,
+        how="left",
+        validate="many_to_one",
+    )
+
+    if aligned["re_ref"].isna().any():
+        raise ValueError(
+            "Could not determine the reference equilibrium distance "
+            "for every angular configuration"
+        )
+
+    # Keep only points close to equilibrium
+    near_eq_mask = (np.abs(aligned["r"] - aligned["re_ref"]) <= delta_r)
+
+    near_eq = aligned.loc[near_eq_mask]
+
+    if near_eq.empty:
+        raise ValueError(
+            "No data points found inside the requested "
+            f"near-equilibrium window ±{delta_r} Å"
+        )
+
+    # Energy RMSE
+    delta_E = (near_eq["e_model"].to_numpy() - near_eq["e_ref"].to_numpy())
+
+    return np.sqrt(np.mean(delta_E**2))
+
+
+# ----------------------------------------------------------------------
+
+def compute_energy_errors(df_data, df_model, print_errors=True, near_eq_delta_r=1.0):
+    """ Compute RMSE and mean/max residuals for E, D, and r_e between
+    model and reference. + RMSE using only points within ±near_eq_delta_r """
+    (E_data, E_model, D_model, D_data, re_model, re_data) = extract_energy_comparison(df_data, df_model)
+
+    Delta_E = E_model - E_data
+    Delta_D = D_model - D_data
+    Delta_re = re_model - re_data
+
+    E_rmse_near_eq = compute_near_equilibrium_energy_rmse(df_data, df_model, delta_r=near_eq_delta_r)
 
     errors = {
-        # full energy grid
-        'global_E_residuals': np.mean(Delta_E),
-        'max_E_residuals'   : np.max(Delta_E),
-        'E_rmse'            : np.sqrt(np.mean(Delta_E**2)),
+        # Full energy grid
+        "global_E_residuals": np.mean(Delta_E),
+        "max_E_residuals": np.max(Delta_E),
+        "E_rmse": np.sqrt(np.mean(Delta_E**2)),
 
-        # well depth (minimum energy)
-        'global_D_residuals': np.mean(Delta_D),
-        'max_D_residuals'   : np.max(Delta_D),
-        'D_rmse'            : np.sqrt(np.mean(Delta_D**2)),
+        # Energy near equilibrium
+        "E_rmse_near_eq": E_rmse_near_eq,
 
-        # equilibrium distance
-        'global_re_residuals': np.mean(Delta_re),
-        'max_re_residuals'   : np.max(Delta_re),
-        're_rmse'            : np.sqrt(np.mean(Delta_re**2)),
+        # Well depth
+        "global_D_residuals": np.mean(Delta_D),
+        "max_D_residuals": np.max(Delta_D),
+        "D_rmse": np.sqrt(np.mean(Delta_D**2)),
+
+        # Equilibrium distance
+        "global_re_residuals": np.mean(Delta_re),
+        "max_re_residuals": np.max(Delta_re),
+        "re_rmse": np.sqrt(np.mean(Delta_re**2)),
     }
 
     if print_errors:
-        for k, v in errors.items():
-            if k.startswith('global_re') or k.startswith('max_re') or k.startswith('re_rmse'):
-                print(f"{k:25s}: {v:.5e} Å")
+        for key, value in errors.items():
+
+            if (
+                key.startswith("global_re")
+                or key.startswith("max_re")
+                or key.startswith("re_rmse")
+            ):
+                print(
+                    f"{key:25s}: "
+                    f"{value:.5e} Å"
+                )
+
             else:
-                print(f"{k:25s}: {v*1000:.5e} meV")
+                print(
+                    f"{key:25s}: "
+                    f"{value * 1000:.5e} meV"
+                )
 
     return errors
 
