@@ -123,63 +123,57 @@ def fit_Er_1D_lmfit(df, phi_vals, pot_model, init_params, fit_mode):
 
 # ----------------------------------------------------------------------
 
-def fit_alpha_morse(df, phi_vals, screw_dir, alpha_init=1.2, smooth_factor=None):
-    """Fit the Morse alpha at fixed (phi1, phi2) with D and r_e fixed to the data minimum; 
-       return a one-row DataFrame with chi, psi, D, re, alpha."""
+def fit_alpha_morse(df, phi_vals, screw_dir, alpha_init=1.2, smooth_factor=None, weight_sigma=1.0):
+    """Fit Morse alpha with Gaussian weighting around the equilibrium distance."""
     phi1, phi2 = phi_vals
-    mask = (df['phi1'] == phi1) & (df['phi2'] == phi2)
-    Er = df[mask].copy()
+    Er = df[(df["phi1"] == phi1) & (df["phi2"] == phi2)].copy()
 
-    e_vals = Er['e']
+    e_vals = Er["e"]
+
     if smooth_factor:
-        r_smooth, e_vals = smooth_energy_profile(
-            Er['r'].values,
-            Er['e'].values,
-            smooth_factor=smooth_factor
-        )
+        _, e_vals = smooth_energy_profile(Er["r"].values, Er["e"].values, smooth_factor=smooth_factor)
 
     D = -e_vals.min()
-    re = Er.loc[Er['e'].idxmin(), 'r']
+    re = Er.loc[Er["e"].idxmin(), "r"]
+
+    if weight_sigma <= 0:
+        raise ValueError("weight_sigma must be positive")
+
+    importance = np.exp(-0.5 * ((Er["r"].to_numpy() - re) / weight_sigma) ** 2)
+    weights = np.sqrt(importance)
 
     model = Model(Morse_1D)
     params = model.make_params(D=D, re=re, alpha=alpha_init)
-    params['D'].vary = params['re'].vary = False
-    result = model.fit(Er['e'], params, r=Er['r'])
-    alpha = result.params['alpha'].value
+    params["D"].vary = params["re"].vary = False
 
-    fitted_data = pd.DataFrame([{
-        'phi1': phi1,
-        'phi2': phi2,
-        'chi': (phi1 - screw_dir * phi2) % 360,
-        'psi': (phi1 + screw_dir * phi2) % 360,
-        're': re,
-        'D': D,
-        'alpha': alpha
+    result = model.fit(Er["e"], params, r=Er["r"], weights=weights)
+    alpha = result.params["alpha"].value
+
+    return pd.DataFrame([{
+        "phi1": phi1,
+        "phi2": phi2,
+        "chi": (phi1 - screw_dir * phi2) % 360,
+        "psi": (phi1 + screw_dir * phi2) % 360,
+        "re": re,
+        "D": D,
+        "alpha": alpha,
     }])
-    return fitted_data
+
 
 # ----------------------------------------------------------------------
 
-def fit_alpha_values(df, interaction):
+def fit_alpha_values(df, interaction, weight_sigma=1.0):
     """Fit alpha values in the same angular order as the energy minima."""
     screw_dir = get_screw_dir(interaction)
-
     E_min_df = extract_energy_minimums(df, r_max=12)
 
     results = [
-        fit_alpha_morse(
-            df,
-            (row.phi1, row.phi2),
-            screw_dir,
-            smooth_factor=None,
-        )
+        fit_alpha_morse(df, (row.phi1, row.phi2), screw_dir, smooth_factor=None, weight_sigma=weight_sigma)
         for row in E_min_df.itertuples(index=False)
     ]
 
-    return pd.concat(
-        results,
-        ignore_index=True
-    )['alpha'].to_numpy()
+    return pd.concat(results, ignore_index=True)["alpha"].to_numpy()
+
 
 # ----------------------------------------------------------------------
 
@@ -218,7 +212,8 @@ def _parse_prune_arg(arg, keys=('D', 're', 'alpha')):
 # ----------------------------------------------------------------------
 
 def generate_fourier_morse_data(df, molecule, interaction, harmonic_ceils,
-                                alpha_fit=False, print_errors=True,
+                                alpha_fit=False, weight_sigma=1,
+                                print_errors=True,
                                 prune_model=False, prune_thresholds=None, prune_top_n=None):
     """Fit (and optionally prune) Fourier coefficients for D, r_e, and alpha, 
        then evaluate the resulting anisotropic Morse model."""
@@ -240,7 +235,7 @@ def generate_fourier_morse_data(df, molecule, interaction, harmonic_ceils,
     alpha_coeff = None
 
     if alpha_fit:
-        alpha_vals = fit_alpha_values(df, interaction)
+        alpha_vals = fit_alpha_values(df, interaction, weight_sigma)
         alpha_coeff, *_ = np.linalg.lstsq(A, alpha_vals, rcond=None)
 
     if prune_model:
