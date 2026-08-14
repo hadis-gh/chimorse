@@ -1221,9 +1221,9 @@ def plot_convergence_panel(df, interaction, screw_step, harmonics=((0, 9), 9),
                            cmap=cmap_name,
                            alpha=0.8)
 
-    ax_heatmap.set_xlabel(r'$N_{\psi}$')
+    ax_heatmap.set_xlabel(r'$L_{\psi}$')
     if left_label:
-        ax_heatmap.set_ylabel(r'$N_{\chi}$')
+        ax_heatmap.set_ylabel(r'$M_{\chi}$')
     ax_heatmap.set_xticks(np.arange(len(h_psi_vals)))
     ax_heatmap.set_xticklabels([str(k0 * j) for j in h_psi_vals])
     ax_heatmap.set_yticks(np.arange(len(h_chi_vals)))
