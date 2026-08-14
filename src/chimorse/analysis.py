@@ -219,23 +219,23 @@ def compute_energy_errors(df_data, df_model, print_errors=True, near_eq_delta_r=
     E_rmse_near_eq = compute_near_equilibrium_energy_rmse(df_data, df_model, delta_r=near_eq_delta_r)
 
     errors = {
+        # Well depth
+        # "global_D_residuals": np.mean(Delta_D),
+        # "max_D_residuals": np.max(Delta_D),
+        "D_rmse": np.sqrt(np.mean(Delta_D**2)),
+
+        # Equilibrium distance
+        # "global_re_residuals": np.mean(Delta_re),
+        # "max_re_residuals": np.max(Delta_re),
+        "re_rmse": np.sqrt(np.mean(Delta_re**2)),
+
         # Full energy grid
-        "global_E_residuals": np.mean(Delta_E),
-        "max_E_residuals": np.max(Delta_E),
+        # "global_E_residuals": np.mean(Delta_E),
+        # "max_E_residuals": np.max(Delta_E),
         "E_rmse": np.sqrt(np.mean(Delta_E**2)),
 
         # Energy near equilibrium
         "E_rmse_near_eq": E_rmse_near_eq,
-
-        # Well depth
-        "global_D_residuals": np.mean(Delta_D),
-        "max_D_residuals": np.max(Delta_D),
-        "D_rmse": np.sqrt(np.mean(Delta_D**2)),
-
-        # Equilibrium distance
-        "global_re_residuals": np.mean(Delta_re),
-        "max_re_residuals": np.max(Delta_re),
-        "re_rmse": np.sqrt(np.mean(Delta_re**2)),
     }
 
     if print_errors:
