@@ -209,6 +209,7 @@ def compute_near_equilibrium_energy_rmse(df_data, df_model, delta_r=1.0, r_max=1
 def compute_energy_errors(df_data, df_model, print_errors=True, near_eq_delta_r=1.0):
     """ Compute RMSE and mean/max residuals for E, D, and r_e between
     model and reference. + RMSE using only points within ±near_eq_delta_r """
+    print('='*200)
     (E_data, E_model, D_model, D_data, re_model, re_data) = extract_energy_comparison(df_data, df_model)
 
     Delta_E = E_model - E_data
@@ -255,7 +256,7 @@ def compute_energy_errors(df_data, df_model, print_errors=True, near_eq_delta_r=
                     f"{key:25s}: "
                     f"{value * 1000:.5e} meV"
                 )
-
+    print('='*200)
     return errors
 
 # ----------------------------------------------------------------------
