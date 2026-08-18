@@ -1283,7 +1283,7 @@ def plot_convergence_panel(df, interaction, screw_step, harmonics=((0, 9), 9),
 
 def plot_parity(df_data, df_model, interaction, alpha_fit,
                 colors=INTERACTION_CMAPS,
-                compare_target='Emin', save_path=None):
+                compare_target='Emin', zoom_in=None, save_path=None):
     """Parity scatter (model vs reference) for D, r_e, or full E (compare_target), with a 1:1 reference line."""
     point_color = plt.get_cmap(colors[interaction])(0.2)
 
@@ -1309,6 +1309,9 @@ def plot_parity(df_data, df_model, interaction, alpha_fit,
 
     lim_min = np.min([ref_vals.min(), model_vals.min()])
     lim_max = np.max([ref_vals.max(), model_vals.max()]) if compare_target!='E' else 5
+
+    if zoom_in:
+          lim_max = zoom_in 
 
     lims = [lim_min, lim_max]
 
