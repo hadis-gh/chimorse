@@ -1032,7 +1032,7 @@ def plot_energy_surfaces_chi_psi(df, interaction, screw_step,
     apply_style(ax, spine=True, grid=False, hide_top_right=False)
     ax.tick_params(width=0.4)
 
-    shrink_val = .704 if left_label else .638
+    shrink_val = .68 if left_label else .62
     cbar_label = 'ΔE (eV)' if plot_type == 'difference' else 'E (eV)'
     cbar = fig.colorbar(
         im, ax=ax, shrink=shrink_val, pad=0.0008,
@@ -1045,7 +1045,7 @@ def plot_energy_surfaces_chi_psi(df, interaction, screw_step,
 
     plt.tight_layout()
     if save_path is not None:
-        plot_name = f"energy_surface_chi_psi_{plot_type}.pdf"
+        plot_name = f"energy_surface_chi_psi_{plot_type}_{target}.pdf"
         plt.savefig(save_path / plot_name, bbox_inches='tight')
 
     plt.show()
@@ -1163,7 +1163,7 @@ def plot_chi_psi_panel(df_org, interaction, screw_step,
     ax_psi.set_yticks([0, 90, 180, 270])
 
     if save_path is not None:
-        plt.savefig(save_path / 'psi_chi_panel.pdf', bbox_inches='tight')
+        plt.savefig(save_path / f'psi_chi_panel_{target}.pdf', bbox_inches='tight')
     plt.show()
 
 # ======================================================================
@@ -1273,7 +1273,7 @@ def plot_convergence_panel(df, interaction, screw_step, harmonics=((0, 9), 9),
     apply_compact_style(ax_chi_line, tick_width=0)
 
     if save_path is not None:
-        plt.savefig(save_path / 'convergence_panel.pdf', bbox_inches='tight')
+        plt.savefig(save_path / f'convergence_panel_{data_type}.pdf', bbox_inches='tight')
 
     plt.show()
 
