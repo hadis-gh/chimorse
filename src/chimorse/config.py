@@ -15,7 +15,6 @@ from matplotlib.colors import ListedColormap
 # ----------------------------------------------------------------------
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-DATA_DIR = REPO_ROOT / "data"
 
 # ----------------------------------------------------------------------
 
@@ -90,7 +89,7 @@ def load_molecule_info(
 ) -> MoleculeInfo:
     """Load dataset metadata from ``data/<molecule_id>/metadata.json``."""
     if metadata_path is None:
-        metadata_path = DATA_DIR / molecule_id / "metadata.json"
+        metadata_path = REPO_ROOT / "data" / molecule_id / "metadata.json"
     else:
         metadata_path = Path(metadata_path)
 
