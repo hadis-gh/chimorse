@@ -42,7 +42,7 @@ If you would like to contribute code or documentation changes directly, please u
 1. **Fork the repository** on GitHub.
 2. **Clone your fork** locally:
    ```bash
-   git clone [https://github.com/hadis-gh/chimorse.git](https://github.com/hadis-gh/chimorse.git)
+   git clone https://github.com/hadis-gh/chimorse.git
    cd chimorse
    ```
 1. **Create a new branch** for your feature or bug fix:

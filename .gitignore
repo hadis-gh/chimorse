@@ -8,3 +8,6 @@ __pycache__/
 .venv/
 .ipynb_checkpoints/
 data/
+.pytest_cache/
+build/
+dist/

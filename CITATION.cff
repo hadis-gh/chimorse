@@ -1,6 +1,6 @@
 cff-version: 1.2.0
 message: "If you use chimorse in your research, please cite this software using these metadata."
-title: "chimorse: Symmetry-constrained Fourier–Morse potentials for chiral helix–helix interactions"
+title: "chimorse: Symmetry-constrained Fourier–Morse models for anisotropic pair interactions"
 type: software
 authors:
   - family-names: Ghodrati

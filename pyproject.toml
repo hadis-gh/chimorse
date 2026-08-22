@@ -9,8 +9,17 @@ authors = [{ name = "Hadis Ghodrati", email = "hadis.ghodrati-saeini@physik.tu-c
 maintainers = [{ name = "Jeffrey Kelling", email = "jeffrey.kelling@physik.tu-chemnitz.de" }]
 license = "GPL-3.0-or-later"
 license-files = ["LICENSE"]
-description = "Symmetry-constrained Fourier–Morse potential models for chiral pair interactions"
+description = "Symmetry-constrained Fourier–Morse models for anisotropic pair interactions"
+readme = "README.md"
 requires-python = ">=3.9"
+
+keywords = [
+    "anisotropic interactions",
+    "Morse potential",
+    "Fourier expansion",
+    "molecular modeling",
+    "scientific computing",
+]
 dependencies = [
     "numpy",
     "pandas",
@@ -19,6 +28,12 @@ dependencies = [
     "seaborn",
     "lmfit",
 ]
+
+
+[project.urls]
+Homepage = "https://github.com/hadis-gh/chimorse"
+Repository = "https://github.com/hadis-gh/chimorse"
+Issues = "https://github.com/hadis-gh/chimorse/issues"
 
 [tool.setuptools.packages.find]
 where = ["src"]
