@@ -8,7 +8,7 @@
 
 <p align="center">
   <img src="https://img.shields.io/badge/python-%E2%89%A53.9-blue.svg" alt="Python ≥3.9"/>
-  <img src="https://img.shields.io/badge/license-MIT-green.svg" alt="License: MIT"/>
+  <img src="https://img.shields.io/badge/license-GPLv3%2B-blue.svg" alt="License: GPL-3.0-or-later"/>
 </p>
 
 <p align="center">
@@ -160,7 +160,7 @@ If you use `chimorse`, please cite the accompanying paper:
 
 ## License
 
-Released under the MIT License.
+Released under the GNU General Public License v3.0 or later (GPL-3.0-or-later).
 
 ---
 
