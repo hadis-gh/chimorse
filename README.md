@@ -1,8 +1,8 @@
 <p align="center">
-  <img src="docs/logo_chimorse.png" alt="CHIMORSE logo" width="300"/>
+  <img src="docs/logo_chimorse.png" alt="ChiMorse logo" width="300"/>
 </p>
 
-<h1 align="center">CHIMORSE</h1>
+<h1 align="center">ChiMorse</h1>
 
 <p align="center">
   Compact, symmetry-constrained Fourier–Morse models for anisotropic pair interactions.
@@ -14,19 +14,19 @@
   <img src="https://github.com/hadis-gh/chimorse/actions/workflows/test.yml/badge.svg" alt="Tests"/>
 </p>
 
-CHIMORSE is a Python package for converting sampled, orientation-dependent pair-interaction energies into compact analytical potentials. It combines a radial Morse potential with symmetry-adapted Fourier expansions of the orientational dependence and provides tools for fitting, convergence analysis, coefficient pruning, model evaluation, visualization, and export.
+ChiMorse is a Python package for converting sampled, orientation-dependent pair-interaction energies into compact analytical potentials. It combines a radial Morse potential with symmetry-adapted Fourier expansions of the orientational dependence and provides tools for fitting, convergence analysis, coefficient pruning, model evaluation, visualization, and export.
 
 The framework is formulated for anisotropic pair interactions in a two-dimensional surface geometry. The reference workflow included with the repository uses **α-polyalanine (αPA) helices** as a symmetry-rich demonstration case and fits SCC-DFTB interaction-energy data.
 
 <p align="center">
-  <img src="docs/images/workflow.png" alt="CHIMORSE workflow from tabulated interaction data to a reduced analytical model" width="900"/>
+  <img src="docs/images/workflow.png" alt="ChiMorse workflow from tabulated interaction data to a reduced analytical model" width="900"/>
 </p>
 
-## Why CHIMORSE?
+## Why ChiMorse?
 
 Dense multidimensional interaction tables retain detailed anisotropic energetics, but they require storage and interpolation during simulation. Simple analytical pair potentials are compact and efficient, but do not by themselves capture orientation dependence.
 
-CHIMORSE provides an intermediate representation that is:
+ChiMorse provides an intermediate representation that is:
 
 - **Analytical** — the radial interaction is represented by a Morse potential.
 - **Systematically refinable** — angular resolution is controlled by Fourier harmonic order.
@@ -37,7 +37,7 @@ CHIMORSE provides an intermediate representation that is:
 
 ## Method at a glance
 
-For each orientational configuration, CHIMORSE represents the radial interaction as
+For each orientational configuration, ChiMorse represents the radial interaction as
 
 $$
 V(r;\chi,\psi)
@@ -71,7 +71,7 @@ For the complete formulation, symmetry relations, convergence analysis, and vali
 
 ## Installation
 
-CHIMORSE is currently installed from source.
+ChiMorse is currently installed from source.
 
 ```bash
 git clone https://github.com/hadis-gh/chimorse.git
@@ -90,7 +90,7 @@ pytest -q
 
 ## Quick start
 
-The reference αPA dataset is archived separately on Zenodo. CHIMORSE can download it on demand and reuse the local copy on subsequent runs.
+The reference αPA dataset is archived separately on Zenodo. ChiMorse can download it on demand and reuse the local copy on subsequent runs.
 
 ```python
 from pathlib import Path
@@ -156,9 +156,8 @@ The scientific reference data are **not stored in this Git repository**. Keeping
 The currently registered reference dataset is:
 
 - **System:** α-polyalanine (`PA`)
-- **Method:** SCC-DFTB + UFF calculations
 - **Archive:** Zenodo
-- **Version-specific DOI:** [`10.5281/zenodo.21904448`](https://doi.org/10.5281/zenodo.21904448)
+- **Version-specific DOI:** `10.5281/zenodo.21904448`
 - **Local layout after download:** `data/PA/`
 
 The dataset contains a `metadata.json` file together with the tabulated interaction files used by the examples. `load_molecule_info()` reads the molecule metadata, and `load_data()` reads the interaction file selected in that metadata.
@@ -169,7 +168,7 @@ A raw interaction table contains five tab-separated columns without a header:
 phi1    phi2    zeta    r    pair_energy
 ```
 
-CHIMORSE derives $(\chi,\psi)$ from $(\varphi_1,\varphi_2)$ and converts the pair energy to a binding energy using the isolated-helix reference energy stored in the dataset metadata.
+ChiMorse derives $(\chi,\psi)$ from $(\varphi_1,\varphi_2)$ and converts the pair energy to a binding energy using the isolated-helix reference energy stored in the dataset metadata.
 
 See [Citation](#citation) for the dataset citation placeholder that will be finalized before release.
 
@@ -196,7 +195,7 @@ docs/              figures and documentation assets
 .github/workflows/ continuous-integration configuration
 ```
 
-## Using CHIMORSE with another dataset
+## Using ChiMorse with another dataset
 
 The αPA dataset is the current worked example, but the fitting code is organized around dataset metadata rather than a hard-coded molecule registry. A compatible dataset needs:
 
@@ -207,17 +206,20 @@ The symmetry assumptions and harmonic basis must still be chosen consistently wi
 
 ## Documentation
 
-The example notebooks currently provide the main practical walkthrough of the package. A Sphinx-based user and API documentation site is planned as part of the release preparation.
+The Sphinx documentation source is available in [`docs/`](docs/index.rst) and includes installation and getting-started guides, a software-oriented description of the Fourier–Morse method, reference-data and example-workflow guidance, and an API reference generated from the package docstrings.
 
-Until then, the most useful entry points are:
+To build the documentation locally:
 
-- `examples/` for end-to-end scientific workflows;
-- docstrings in `src/chimorse/` for function-level behavior; and
-- `tests/` for compact examples of expected inputs and outputs.
+```bash
+python -m pip install -e ".[docs]"
+python -m sphinx -W -b html docs docs/_build/html
+```
+
+The worked notebooks in `examples/` remain the most detailed end-to-end scientific demonstrations.
 
 ## Citation
 
-CHIMORSE separates citation of the **software**, the **scientific method/paper**, and the **reference dataset**. Please cite the items relevant to your use.
+ChiMorse separates citation of the **software**, the **scientific method/paper**, and the **reference dataset**. Please cite the items relevant to your use.
 
 ### Software
 
@@ -237,10 +239,9 @@ If your work uses the Fourier–Morse methodology or results described in the ac
 
 If you use the αPA SCC-DFTB reference data, please cite the archived dataset separately:
 
-> Günther, F. S., Preis, K., Gemming, S., Kelling, J., & Ghodrati, H. (2026).  
-> **Interaction potential of parallel and antiparallel aligned, infinite polyanaline alpha-helices as obtained from SCC-DFTB + UFF calculations** [Dataset].  
-> In *Simulation of Self-Assembled Monolayers of Polyalanine α-Helices: Development and Application of an Effective Potential for Film Structure Predictions* (Vol. 18, Issue 21, pp. 30467–30479). Zenodo.  
-> https://doi.org/10.5281/zenodo.21904448
+> **α-polyalanine interaction-energy dataset.**  
+> Zenodo, version-specific DOI: `10.5281/zenodo.21904448`.  
+> *Full dataset creator/title citation to be inserted from the finalized Zenodo metadata before release.*
 
 ## Reproducibility
 
@@ -252,7 +253,7 @@ The repository is organized so that the software and archived scientific data re
 - automated tests run through GitHub Actions on supported Python versions; and
 - release citation metadata are stored in `CITATION.cff`.
 
-For a published analysis, record both the CHIMORSE release/version and the dataset DOI used to generate the results.
+For a published analysis, record both the ChiMorse release/version and the dataset DOI used to generate the results.
 
 ## Contributing
 
@@ -262,10 +263,10 @@ For changes to the scientific model, please describe the physical assumption bei
 
 ## License
 
-CHIMORSE is released under the **GNU General Public License v3.0 or later (GPL-3.0-or-later)**. See [`LICENSE`](LICENSE) for the full license text.
+ChiMorse is released under the **GNU General Public License v3.0 or later (GPL-3.0-or-later)**. See [`LICENSE`](LICENSE) for the full license text.
 
 The external reference dataset is a separate research object and is subject to the licensing and citation terms of its Zenodo record.
 
 ## Acknowledgements
 
-Development of CHIMORSE was supported by the German Research Foundation (DFG), TRR-386, TP A4 and B2, project number 514664767.
+Development of ChiMorse was supported by the German Research Foundation (DFG), TRR-386, TP A4 and B2, project number 514664767.
