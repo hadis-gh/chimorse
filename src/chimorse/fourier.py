@@ -149,8 +149,8 @@ def create_fourier_terms_2d(h_chi, h_psi, symm_chi, screw_step):
     """
     Creates explicit Fourier terms in the same order as fitting matrix.
     Each term means:
-        coefficient * f_chi(m * chi) * f_psi(n * psi)
-    where f_chi and f_psi are either cos or sin.
+    :math:`coefficient * f_chi(m * chi) * f_psi(n * psi)`
+    where :math:`f_chi` and :math:`f_psi` are either cos or sin.
     """
 
     terms = []
