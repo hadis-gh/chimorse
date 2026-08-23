@@ -40,6 +40,10 @@ where = ["src"]
 
 [project.optional-dependencies]
 test = ["pytest>=7.0"]
+docs = [
+    "sphinx>=7.2",
+    "furo>=2024.8.6",
+]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
