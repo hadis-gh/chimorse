@@ -1,28 +1,27 @@
 # Configuration file for the Sphinx documentation builder.
-#
-# For the full list of built-in configuration values, see the documentation:
-# https://www.sphinx-doc.org/en/master/usage/configuration.html
 
-# -- Project information -----------------------------------------------------
-# https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
+project = "ChiMorse"
+copyright = "2026, Hadis Ghodrati"
+author = "Hadis Ghodrati"
+release = "0.1.0"
 
-project = 'CHIMORSE'
-copyright = '2026, Hadis Ghodrati'
-author = 'Hadis Ghodrati'
-release = '0.1.0'
+extensions = [
+    "sphinx.ext.autodoc",
+    "sphinx.ext.napoleon",
+    "sphinx.ext.mathjax",
+    "sphinx.ext.viewcode",
+]
 
-# -- General configuration ---------------------------------------------------
-# https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
+templates_path = []
+exclude_patterns = [
+    "_build",
+    "Thumbs.db",
+    ".DS_Store",
+]
 
-extensions = []
+html_theme = "furo"
 
-templates_path = ['_templates']
-exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store']
+html_static_path = ["_static"]
+html_css_files = ["custom.css"]
 
-
-
-# -- Options for HTML output -------------------------------------------------
-# https://www.sphinx-doc.org/en/master/usage/configuration.html#options-for-html-output
-
-html_theme = 'alabaster'
-html_static_path = ['_static']
+autodoc_member_order = "bysource"
