@@ -134,8 +134,11 @@ def extract_energy_comparison(df_data, df_model):
 # ----------------------------------------------------------------------
 
 def compute_near_equilibrium_energy_rmse(df_data, df_model, delta_r=1.0, r_max=12):
-    """ Compute the energy RMSE using only points close to the reference
-    equilibrium distance of each angular configuration. |r - r_e,ref| <= delta_r  """
+    r"""Compute the energy RMSE near the reference equilibrium distance.
+    Only points satisfying
+    :math:`|r - r_{e,\mathrm{ref}}| \leq \Delta r`
+    for each angular configuration are included.
+    """
 
     if delta_r <= 0:
         raise ValueError("delta_r must be positive")

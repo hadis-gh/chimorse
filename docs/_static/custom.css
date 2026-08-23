@@ -1,0 +1,5 @@
+/* Keep equations and wide API signatures readable on smaller screens. */
+.math-wrapper,
+.sig-object {
+  overflow-x: auto;
+}
