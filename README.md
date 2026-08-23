@@ -19,7 +19,7 @@ ChiMorse is a Python package for converting sampled, orientation-dependent pair-
 The framework is formulated for anisotropic pair interactions in a two-dimensional surface geometry. The reference workflow included with the repository uses **α-polyalanine (αPA) helices** as a symmetry-rich demonstration case and fits SCC-DFTB interaction-energy data.
 
 <p align="center">
-  <img src="docs/images/workflow.png" alt="ChiMorse workflow from tabulated interaction data to a reduced analytical model" width="900"/>
+  <img src="docs/workflow.pdf" alt="ChiMorse workflow from tabulated interaction data to a reduced analytical model" width="900"/>
 </p>
 
 ## Why ChiMorse?
