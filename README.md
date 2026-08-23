@@ -206,7 +206,7 @@ The symmetry assumptions and harmonic basis must still be chosen consistently wi
 
 ## Documentation
 
-The Sphinx documentation source is available in [`docs/`](docs/index.rst) and includes installation and getting-started guides, a software-oriented description of the Fourier–Morse method, reference-data and example-workflow guidance, and an API reference generated from the package docstrings.
+The Sphinx documentation source is available in [`ChiMorse Page`](https://hadis-gh.github.io/chimorse/) and includes installation and getting-started guides, a software-oriented description of the Fourier–Morse method, reference-data and example-workflow guidance, and an API reference generated from the package docstrings.
 
 To build the documentation locally:
 
