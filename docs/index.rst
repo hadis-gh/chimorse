@@ -14,7 +14,7 @@ The reference workflow uses chiral alpha-polyalanine (alphaPA) helices as a
 symmetry-rich demonstration system, but the representation is not tied to a
 specific reference-data generation method.
 
-.. image:: images/workflow.png
+.. image:: images/workflow_chimorse.png
    :alt: ChiMorse workflow from sampled pair-interaction data to a compact analytical model.
    :align: center
    :width: 95%
