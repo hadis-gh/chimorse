@@ -17,7 +17,7 @@ contact:
   - family-names: Ghodrati
     given-names: Hadis
     orcid: "https://orcid.org/0009-0004-1451-8086"
-    # email: "your-email-address"
+    email: "hadis.ghodrati-saeini@physik.tu-chemnitz.de"
 
 version: 0.1.0
 
