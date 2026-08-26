@@ -1,4 +1,5 @@
 """Plot OA potential E(r) statistics and the Fourier-Morse fit error vs distance."""
+import argparse
 import os
 
 import matplotlib.pyplot as plt
@@ -26,12 +27,18 @@ INTERACTION = "OA"
 HARMONIC_CEILS = {"EP": (8, 1), "EA": (8, 1), "OP": (20, 1), "OA": (20, 1)}
 ALPHA_FIT = True
 
-molecule = load_molecule_info(MOLECULE)
-df_ref = load_data(molecule, INTERACTION, zero_zeta=True)
-df_model = generate_fourier_morse_data(
-    df_ref, molecule, INTERACTION, HARMONIC_CEILS,
-    alpha_fit=ALPHA_FIT, print_errors=False,
-)
+
+def _tagged(out_dir, base, ext, tag):
+    """Build an output path base.ext (optionally tagged) inside out_dir."""
+    name = f"{base}_{tag}{ext}" if tag else f"{base}{ext}"
+    return os.path.join(out_dir, name)
+
+
+def _load_reference(molecule, interaction, data_file):
+    """Load the reference data frame, from data_file (CSV) or the default loader."""
+    if data_file:
+        return pd.read_csv(data_file)
+    return load_data(molecule, interaction, zero_zeta=True)
 
 def make_plot(df_ref, df_model, title_suffix, out, stats_file=None):
     """Aggregate E(r) statistics and fit error per r and save a 2-panel figure.
@@ -90,7 +97,7 @@ def make_plot(df_ref, df_model, title_suffix, out, stats_file=None):
     ax2.legend(loc="upper right", ncol=3)
 
     fig.tight_layout()
-    os.makedirs("Figures", exist_ok=True)
+    os.makedirs(os.path.dirname(out), exist_ok=True)
     fig.savefig(out)
     plt.close(fig)
     print("Saved", out)
@@ -139,22 +146,6 @@ def make_plot(df_ref, df_model, title_suffix, out, stats_file=None):
             f.write(text)
         print("Saved", stats_file)
 
-
-# full dataset
-make_plot(df_ref, df_model, "", "Figures/oa_E_statistics_and_error.pdf")
-
-# bound region only: disregard all points with E > 0
-mask = df_ref["e"] <= 0
-df_ref_bound = df_ref[mask]
-keys = pd.MultiIndex.from_frame(df_ref_bound[["phi1", "phi2", "r"]].drop_duplicates())
-df_model_bound = df_model[
-    pd.MultiIndex.from_frame(df_model[["phi1", "phi2", "r"]]).isin(keys)
-].reset_index(drop=True)
-make_plot(
-    df_ref_bound, df_model_bound, " (E ≤ 0 only)",
-    "Figures/oa_E_statistics_and_error_bound.pdf",
-    stats_file="Figures/oa_fit_error_stats.txt",
-)
 
 
 def shifted_aligned(df_ref, df_model, e_lt_zero=True):
@@ -264,7 +255,7 @@ def plot_shifted_error(df_ref, df_model, out, csv_out=None):
     ax.legend(lines_l + lines_r, labels_l + labels_r, loc="upper right", ncol=2)
 
     fig.tight_layout()
-    os.makedirs("Figures", exist_ok=True)
+    os.makedirs(os.path.dirname(out), exist_ok=True)
     fig.savefig(out)
     plt.close(fig)
     print("Saved", out)
@@ -368,7 +359,7 @@ def plot_shifted_rel_error(df_ref, df_model, out, csv_out=None,
                  title="zoom: rel. error ≤ 0.5, E − E(r_e) ≤ 200 meV")
 
     fig.tight_layout()
-    os.makedirs("Figures", exist_ok=True)
+    os.makedirs(os.path.dirname(out), exist_ok=True)
     fig.savefig(out)
     plt.close(fig)
     print("Saved", out)
@@ -396,7 +387,7 @@ def plot_shifted_rel_error(df_ref, df_model, out, csv_out=None,
         axr2.set_title("OA: mean rel. error vs. energy window; "
                        r"$|\Delta E|/\max(E{-}E(r_e),25\,\mathrm{meV})$")
         fgr.tight_layout()
-        os.makedirs("Figures", exist_ok=True)
+        os.makedirs(os.path.dirname(out), exist_ok=True)
         fgr.savefig(ranges_out)
         plt.close(fgr)
         print("Saved", ranges_out)
@@ -432,7 +423,7 @@ def plot_waterfall(df_ref, df_model, out, n_curves=None):
     ax.set_ylabel("E + offset (eV)")
     ax.set_title(f"OA {MOLECULE}: waterfall of aligned E(r), E < 0 ({n} orientations)")
     fig.tight_layout()
-    os.makedirs("Figures", exist_ok=True)
+    os.makedirs(os.path.dirname(out), exist_ok=True)
     fig.savefig(out)
     plt.close(fig)
     print("Saved", out)
@@ -524,25 +515,6 @@ def plot_selected_series(df_ref, df_model, out, csv_out, log_out, e_floor=25e-3)
     print("Saved", out)
 
 
-plot_shifted_error(
-    df_ref, df_model, "Figures/oa_shifted_error.pdf",
-    csv_out="Figures/oa_shifted_error_data.csv",
-)
-plot_waterfall(df_ref, df_model, "Figures/oa_waterfall.pdf")
-plot_shifted_rel_error(
-    df_ref, df_model, "Figures/oa_shifted_rel_error.pdf",
-    csv_out="Figures/oa_shifted_rel_error_data.csv",
-    ranges_csv_out="Figures/oa_rel_error_ranges.csv",
-    ranges_out="Figures/oa_rel_error_ranges.pdf",
-)
-plot_selected_series(
-    df_ref, df_model,
-    "Figures/oa_selected_series.pdf",
-    "Figures/oa_selected_series_data.csv",
-    "Figures/oa_selected_series_log.txt",
-)
-
-
 def plot_top_rmse(df_ref, df_model, out_shifted, out_abs,
                   e_rel_sel=0.1, e_rel_plot=1.0):
     """Select the worst (top-3) and best orientations by RMSE computed in the
@@ -592,7 +564,7 @@ def plot_top_rmse(df_ref, df_model, out_shifted, out_abs,
         axerr.set_xlabel(label)
         axerr.legend(loc="best", fontsize=8)
         fig.tight_layout()
-        os.makedirs("Figures", exist_ok=True)
+        os.makedirs(os.path.dirname(out_shifted), exist_ok=True)
         fig.savefig(out_shifted if x_key == "s" else out_abs)
         plt.close(fig)
         print("Saved", out_shifted if x_key == "s" else out_abs)
@@ -601,8 +573,82 @@ def plot_top_rmse(df_ref, df_model, out_shifted, out_abs,
     render("r", "distance $r$ (Å)", show_fit=True)
 
 
-plot_top_rmse(
-    df_ref, df_model,
-    "Figures/oa_top_rmse_shifted.pdf",
-    "Figures/oa_top_rmse_abs.pdf",
-)
+def main(argv=None):
+    parser = argparse.ArgumentParser(
+        description="Plot OA potential E(r) statistics and Fourier-Morse fit error."
+    )
+    parser.add_argument("--fit-input", default=None,
+                        help="CSV of a precomputed potential fit (df_model). "
+                             "If omitted, a fit is computed inline with equal weights.")
+    parser.add_argument("--data-file", default=None,
+                        help="CSV of the reference data frame (df_ref). "
+                             "If omitted, the default OA reference data is loaded.")
+    parser.add_argument("--output-dir", default="Figures",
+                        help="output directory (default: Figures)")
+    parser.add_argument("--tag", default=None,
+                        help="suffix appended to every output filename, e.g. "
+                             "w_poisson_lam0.5 (default: w_equal when fitting inline)")
+    args = parser.parse_args(argv)
+
+    out_dir = args.output_dir
+    os.makedirs(out_dir, exist_ok=True)
+
+    molecule = load_molecule_info(MOLECULE)
+    df_ref = _load_reference(molecule, INTERACTION, args.data_file)
+
+    if args.fit_input:
+        df_model = pd.read_csv(args.fit_input)
+        tag = args.tag if args.tag is not None else ""
+    else:
+        df_model = generate_fourier_morse_data(
+            df_ref, molecule, INTERACTION, HARMONIC_CEILS,
+            alpha_fit=ALPHA_FIT, print_errors=False,
+        )
+        tag = args.tag if args.tag is not None else "w_equal"
+
+    # ---------- statistics / bound-region ----------
+    make_plot(df_ref, df_model, "", _tagged(out_dir, "oa_E_statistics_and_error", ".pdf", tag))
+
+    mask = df_ref["e"] <= 0
+    df_ref_bound = df_ref[mask]
+    keys = pd.MultiIndex.from_frame(df_ref_bound[["phi1", "phi2", "r"]].drop_duplicates())
+    df_model_bound = df_model[
+        pd.MultiIndex.from_frame(df_model[["phi1", "phi2", "r"]]).isin(keys)
+    ].reset_index(drop=True)
+    make_plot(
+        df_ref_bound, df_model_bound, " (E ≤ 0 only)",
+        _tagged(out_dir, "oa_E_statistics_and_error_bound", ".pdf", tag),
+        stats_file=_tagged(out_dir, "oa_fit_error_stats", ".txt", tag),
+    )
+
+    # ---------- shifted / relative error / waterfall / selected series ----------
+    plot_shifted_error(
+        df_ref, df_model,
+        _tagged(out_dir, "oa_shifted_error", ".pdf", tag),
+        csv_out=_tagged(out_dir, "oa_shifted_error_data", ".csv", tag),
+    )
+    plot_waterfall(df_ref, df_model, _tagged(out_dir, "oa_waterfall", ".pdf", tag))
+    plot_shifted_rel_error(
+        df_ref, df_model,
+        _tagged(out_dir, "oa_shifted_rel_error", ".pdf", tag),
+        csv_out=_tagged(out_dir, "oa_shifted_rel_error_data", ".csv", tag),
+        ranges_csv_out=_tagged(out_dir, "oa_rel_error_ranges", ".csv", tag),
+        ranges_out=_tagged(out_dir, "oa_rel_error_ranges", ".pdf", tag),
+    )
+    plot_selected_series(
+        df_ref, df_model,
+        _tagged(out_dir, "oa_selected_series", ".pdf", tag),
+        _tagged(out_dir, "oa_selected_series_data", ".csv", tag),
+        _tagged(out_dir, "oa_selected_series_log", ".txt", tag),
+    )
+
+    # ---------- top-RMSE orientations ----------
+    plot_top_rmse(
+        df_ref, df_model,
+        _tagged(out_dir, "oa_top_rmse_shifted", ".pdf", tag),
+        _tagged(out_dir, "oa_top_rmse_abs", ".pdf", tag),
+    )
+
+
+if __name__ == "__main__":
+    main()
