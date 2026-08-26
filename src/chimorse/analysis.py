@@ -359,6 +359,7 @@ def expand_chi_psi_by_screw_periodicity(df, screw_step):
     return out.drop_duplicates(subset=coord_cols).reset_index(drop=True)
 
 # ----------------------------------------------------------------------
+
 def compute_local_morse_rmse(df, delta_r=0.5, r_max=12.0):
     """
     Irreducible near-equilibrium Morse radial-form error.
@@ -434,3 +435,71 @@ def compute_local_morse_rmse(df, delta_r=0.5, r_max=12.0):
     residuals = np.asarray(residuals)
 
     return np.sqrt(np.mean(residuals**2))
+
+# ----------------------------------------------------------------------
+
+def _quadratic_energy_minimum(profile, n_points=5):
+    """
+    Estimate the continuous minimum of one radial energy profile
+    from a local quadratic fit around the lowest sampled point.
+
+    Falls back to the discrete minimum if interpolation is not reliable.
+    """
+    profile = profile.sort_values("r")
+
+    r = profile["r"].to_numpy(dtype=float)
+    e = profile["e"].to_numpy(dtype=float)
+
+    i_min = np.argmin(e)
+
+    # Discrete fallback
+    re_discrete = r[i_min]
+    e_discrete = e[i_min]
+
+    if len(r) < 3 or i_min == 0 or i_min == len(r) - 1:
+        return re_discrete, e_discrete
+
+    # Number of local points
+    n_points = min(n_points, len(r))
+
+    # Prefer an odd number
+    if n_points % 2 == 0:
+        n_points -= 1
+
+    half = n_points // 2
+
+    start = max(0, i_min - half)
+    stop = min(len(r), i_min + half + 1)
+
+    # Shift window if close to an edge
+    if stop - start < n_points:
+        if start == 0:
+            stop = min(len(r), n_points)
+        else:
+            start = max(0, len(r) - n_points)
+
+    r_local = r[start:stop]
+    e_local = e[start:stop]
+
+    if len(r_local) < 3:
+        return re_discrete, e_discrete
+
+    # Center r for numerical stability
+    x = r_local - re_discrete
+
+    a, b, c = np.polyfit(x, e_local, 2)
+
+    # Must actually describe a minimum
+    if a <= 0:
+        return re_discrete, e_discrete
+
+    x_min = -b / (2.0 * a)
+    re = re_discrete + x_min
+
+    # Reject extrapolation outside the fitted local interval
+    if re < r_local.min() or re > r_local.max():
+        return re_discrete, e_discrete
+
+    e_min = a * x_min**2 + b * x_min + c
+
+    return re, e_min
