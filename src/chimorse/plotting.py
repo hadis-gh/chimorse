@@ -273,9 +273,8 @@ def plot_ER(df, show_zoom_box=False, show_sample_curves=True, alpha_fit=False, s
     scatter_min(axes[1], E_min_df)
 
     if show_sample_curves:
-        E_min, E_max = df['e'].min(), E_min_df['e'].max()
-        row_min = E_min_df.loc[E_min_df['e'] == E_min].iloc[0]
-        row_max = E_min_df.loc[E_min_df['e'] == E_max].iloc[0]
+        row_min = E_min_df.loc[E_min_df['e'].idxmin()]
+        row_max = E_min_df.loc[E_min_df['e'].idxmax()]
 
         line_low, label_low = _select_sample_curve(df, row_min)
         line_high, label_high = _select_sample_curve(df, row_max)
