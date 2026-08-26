@@ -357,3 +357,80 @@ def expand_chi_psi_by_screw_periodicity(df, screw_step):
         return out.groupby(coord_cols, as_index=False, dropna=False)[value_cols].mean()
 
     return out.drop_duplicates(subset=coord_cols).reset_index(drop=True)
+
+# ----------------------------------------------------------------------
+def compute_local_morse_rmse(df, delta_r=0.5, r_max=12.0):
+    """
+    Irreducible near-equilibrium Morse radial-form error.
+
+    For each angular configuration:
+      1. locate the reference minimum,
+      2. keep points within ±delta_r,
+      3. independently fit D, re, alpha,
+      4. compute the energy residuals in that same region.
+
+    Returns one global RMSE in eV.
+    """
+    from scipy.optimize import curve_fit
+
+    def morse(r, D, re, alpha):
+        return D * (
+            np.exp(-2.0 * alpha * (r - re))
+            - 2.0 * np.exp(-alpha * (r - re))
+        )
+
+    data = df[df["r"] <= r_max].copy()
+
+    group_cols = ["phi1", "phi2"]
+    if "zeta" in data.columns:
+        group_cols.append("zeta")
+
+    residuals = []
+
+    for _, profile in data.groupby(group_cols, dropna=False):
+
+        profile = profile.sort_values("r")
+
+        r_all = profile["r"].to_numpy()
+        e_all = profile["e"].to_numpy()
+
+        # Reference discrete minimum
+        i_min = np.argmin(e_all)
+        re0 = r_all[i_min]
+        D0 = max(-e_all[i_min], 1e-8)
+
+        # Near-equilibrium region only
+        mask = np.abs(r_all - re0) <= delta_r
+
+        r = r_all[mask]
+        e = e_all[mask]
+
+        # Need enough points to fit 3 parameters
+        if len(r) < 4:
+            continue
+
+        try:
+            popt, _ = curve_fit(
+                morse,
+                r,
+                e,
+                p0=[D0, re0, 1.2],
+                bounds=(
+                    [0.0, r.min(), 1e-6],
+                    [np.inf, r.max(), np.inf],
+                ),
+                maxfev=10000,
+            )
+
+            e_fit = morse(r, *popt)
+            residuals.extend(e_fit - e)
+
+        except (RuntimeError, ValueError):
+            continue
+
+    if not residuals:
+        raise ValueError("No Morse profiles could be fitted.")
+
+    residuals = np.asarray(residuals)
+
+    return np.sqrt(np.mean(residuals**2))
