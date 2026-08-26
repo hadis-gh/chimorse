@@ -124,20 +124,21 @@ def fit_Er_1D_lmfit(df, phi_vals, pot_model, init_params, fit_mode):
 
 # ----------------------------------------------------------------------
 
-def equal_weights(r, re=None):
+def equal_weights(r, re=None, e=None, e_min=None):
     """Constant unit weights — every data point contributes equally.
 
-    The re argument is accepted for signature compatibility with the other
-    weight distributions but is unused.
+    The re, e, and e_min arguments are accepted for signature compatibility
+    with the other weight distributions but are unused.
     """
     return np.ones_like(r, dtype=float)
 
 
-def gaussian_weights(r, re, sigma=1.0):
+def gaussian_weights(r, re, sigma=1.0, e=None, e_min=None):
     """Gaussian weight distribution centered at the equilibrium distance r_e.
 
     Matches the historical weighting used for the alpha fit: points close to
     r_e are weighted most strongly, with a symmetric fall-off governed by sigma.
+    The e and e_min arguments are accepted for signature compatibility.
     """
     sigma = float(sigma)
     if sigma <= 0:
@@ -161,13 +162,14 @@ def _continuous_poisson_mode(lam):
     return brentq(lambda x: digamma(x + 1.0) - target, 0.0, hi)
 
 
-def poisson_weights(r, re, lam=None):
+def poisson_weights(r, re, lam=None, e=None, e_min=None):
     """Poisson weight distribution whose maximum sits at the equilibrium distance r_e.
 
     The Poisson shape is right-skewed (longer tail toward large r) and falls off
     steeply below r_e, so it suppresses residuals from the steep repulsive side of
     the potential without over-damping the large-r tail. ``lam`` sets the Poisson
     parameter (spread/skew); it defaults to r_e, which keeps the mode at r_e.
+    The e and e_min arguments are accepted for signature compatibility.
     """
     lam = float(re) if lam is None else float(lam)
     re = float(re)
@@ -189,36 +191,75 @@ def poisson_weights(r, re, lam=None):
     return w
 
 
-def make_weight_func(name, sigma=1.0, lam=None):
-    """Return a weight callable ``w(r, re)`` for a named weight distribution.
+def energy_weights(r, e, re=None, e_min=None, eps=1e-4):
+    """Energy-tied weight distribution.
+
+    weight(r) = sqrt(max(E_min - E(r) - E(re), eps))
+
+    E_min is the global minimum energy of the data (most negative value), E(r)
+    the energy at radial distance r, and E(re) the energy at the equilibrium
+    distance (the per-orientation minimum). The weight grows as the energy drops
+    toward the global minimum and is suppressed on the steep repulsive side
+    (where E(r) rises), hence it is directly tied to the energy values.
+    Points whose energy lies far below the global minimum are floored at
+    sqrt(eps).
+    """
+    r = np.asarray(r, dtype=float)
+    e = np.asarray(e, dtype=float)
+
+    e_min = float(e_min) if e_min is not None else float(np.min(e))
+    eps = float(eps)
+    if eps <= 0:
+        raise ValueError("eps must be positive")
+
+    if re is not None:
+        i_re = int(np.argmin(np.abs(r - re)))
+        e_re = float(e[i_re])
+    else:
+        e_re = float(np.min(e))
+
+    arg = e_min - e - e_re
+    return np.sqrt(np.maximum(arg, eps))
+
+
+def make_weight_func(name, sigma=1.0, lam=None, eps=1e-4):
+    """Return a weight callable ``w(r, re, e, e_min)`` for a named distribution.
 
     name must be one of ``'equal'``, ``'gaussian'`` (center r_e, width sigma),
-    or ``'poisson'`` (mode at r_e, parameter lam). The returned callable takes
-    the radial coordinates and the equilibrium distance r_e, so the distribution
-    is centred at the per-orientation r_e during the fit.
+    ``'poisson'`` (mode at r_e, parameter lam), or ``'energy'`` (tied to the
+    energy values, with floor eps). Each returned callable takes the radial
+    coordinates, the per-orientation equilibrium distance, the energy values,
+    and the global minimum energy, so the distributions can be centred at
+    r_e / tied to E(r) during the fit.
     """
     name = str(name).lower()
     if name == "equal":
-        return lambda r, re=None: np.ones_like(r, dtype=float)
+        return lambda r, re=None, e=None, e_min=None: np.ones_like(r, dtype=float)
     if name == "gaussian":
-        return lambda r, re: gaussian_weights(r, re, sigma=sigma)
+        return lambda r, re=None, e=None, e_min=None: gaussian_weights(r, re, sigma=sigma)
     if name == "poisson":
-        return lambda r, re: poisson_weights(r, re, lam=lam)
+        return lambda r, re=None, e=None, e_min=None: poisson_weights(r, re, lam=lam)
+    if name == "energy":
+        return lambda r, re=None, e=None, e_min=None: energy_weights(
+            r, e, re=re, e_min=e_min, eps=eps
+        )
     raise ValueError(
         f"Unknown weight distribution {name!r}; expected one of "
-        "{'equal', 'gaussian', 'poisson'}."
+        "{'equal', 'gaussian', 'poisson', 'energy'}."
     )
 
 # ----------------------------------------------------------------------
 
 def fit_alpha_morse(df, phi_vals, screw_dir, alpha_init=1.2, smooth_factor=None,
-                    interpolate=True, weight_func=equal_weights):
+                    interpolate=True, weight_func=equal_weights, e_min=None):
     """Fit the Morse alpha at fixed (phi1, phi2) with D and r_e fixed to the data minimum; 
        return a one-row DataFrame with chi, psi, D, re, alpha.
 
-    weight_func is a callable ``w(r, re)`` mapping the radial coordinate array
-    and the per-orientation equilibrium distance to per-point fit weights; it
-    defaults to equal weighting (constant unit weights).
+    weight_func is a callable ``w(r, re, e, e_min)`` mapping the radial
+    coordinate array, the per-orientation equilibrium distance, the energy
+    values, and the global minimum energy to per-point fit weights; it defaults
+    to equal weighting (constant unit weights). If e_min is None it is taken as
+    the minimum energy of df.
     """
     phi1, phi2 = phi_vals
     mask = (df['phi1'] == phi1) & (df['phi2'] == phi2)
@@ -228,7 +269,12 @@ def fit_alpha_morse(df, phi_vals, screw_dir, alpha_init=1.2, smooth_factor=None,
     D = -minimum["e"]
     re = minimum["r"]
 
-    weights = weight_func(Er['r'].to_numpy(), re=re)
+    if e_min is None:
+        e_min = df['e'].min()
+
+    weights = weight_func(
+        Er['r'].to_numpy(), e=Er['e'].to_numpy(), re=re, e_min=e_min
+    )
 
     model = Model(Morse_1D)
     params = model.make_params(D=D, re=re, alpha=alpha_init)
@@ -250,15 +296,18 @@ def fit_alpha_morse(df, phi_vals, screw_dir, alpha_init=1.2, smooth_factor=None,
 # ----------------------------------------------------------------------
 
 def fit_alpha_values(df, interaction, interpolate=True,
-                     weight_func=equal_weights):
+                     weight_func=equal_weights, e_min=None):
     """Fit alpha values in the same angular order as the energy minima.
 
-    weight_func (a callable ``w(r, re)``) is forwarded to fit_alpha_morse for
-    each orientation.
+    weight_func (a callable ``w(r, re, e, e_min)``) is forwarded to
+    fit_alpha_morse for each orientation together with the global energy
+    minimum (computed from df if e_min is None).
     """
     screw_dir = get_screw_dir(interaction)
 
     E_min_df = extract_energy_minimums(df, r_max=12, interpolate=interpolate)
+    if e_min is None:
+        e_min = df['e'].min()
 
     results = [
         fit_alpha_morse(
@@ -268,6 +317,7 @@ def fit_alpha_values(df, interaction, interpolate=True,
             smooth_factor=None,
             interpolate=interpolate,
             weight_func=weight_func,
+            e_min=e_min,
         )
         for row in E_min_df.itertuples(index=False)
     ]
@@ -321,8 +371,8 @@ def generate_fourier_morse_data(df, molecule, interaction, harmonic_ceils,
     """Fit (and optionally prune) Fourier coefficients for D, r_e, and alpha, 
        then evaluate the resulting anisotropic Morse model.
 
-    weight_func (a callable ``w(r, re)``) sets the per-point fit weights for the
-    per-orientation alpha fits (equal weights by default).
+    weight_func (a callable ``w(r, re, e, e_min)``) sets the per-point fit
+    weights for the per-orientation alpha fits (equal weights by default).
     """
     print_modeling_information(molecule, interaction, harmonic_ceils)
 
@@ -343,7 +393,8 @@ def generate_fourier_morse_data(df, molecule, interaction, harmonic_ceils,
 
     if alpha_fit:
         alpha_vals = fit_alpha_values(df, interaction, interpolate=interpolate,
-                                      weight_func=weight_func)
+                                      weight_func=weight_func,
+                                      e_min=df['e'].min())
         alpha_coeff, *_ = np.linalg.lstsq(A, alpha_vals, rcond=None)
 
     if prune_model:
