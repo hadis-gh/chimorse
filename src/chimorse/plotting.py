@@ -224,7 +224,7 @@ def plot_ER(df, show_zoom_box=False, show_sample_curves=True, alpha_fit=False, s
        with optional zoom box and sample curves."""
     alpha_dot = 0.002 if 'zeta' in df.columns else 0.02
 
-    E_min_df = extract_energy_minimums(df, r_max=12)
+    E_min_df = extract_energy_minimums(df, r_max=12, interpolate=False)
 
     zoom_E_range = extract_ER_range(E_min_df, 'e')
     zoom_r_range = extract_ER_range(E_min_df, 'r')
