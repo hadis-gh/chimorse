@@ -123,9 +123,14 @@ def fit_Er_1D_lmfit(df, phi_vals, pot_model, init_params, fit_mode):
 
 # ----------------------------------------------------------------------
 
-def fit_alpha_morse(df, phi_vals, screw_dir, alpha_init=1.2, smooth_factor=None, interpolate=True):
+def fit_alpha_morse(df, phi_vals, screw_dir, alpha_init=1.2, smooth_factor=None,
+                    interpolate=True, weight_func=lambda r: np.ones_like(r)):
     """Fit the Morse alpha at fixed (phi1, phi2) with D and r_e fixed to the data minimum; 
-       return a one-row DataFrame with chi, psi, D, re, alpha."""
+       return a one-row DataFrame with chi, psi, D, re, alpha.
+
+    weight_func is a callable mapping the radial coordinate array to per-point
+    fit weights; it defaults to constant unit weights (equal weighting).
+    """
     phi1, phi2 = phi_vals
     mask = (df['phi1'] == phi1) & (df['phi2'] == phi2)
     Er = df[mask].copy()
@@ -133,11 +138,13 @@ def fit_alpha_morse(df, phi_vals, screw_dir, alpha_init=1.2, smooth_factor=None,
     minimum = extract_energy_minimums(Er, interpolate=interpolate).iloc[0]
     D = -minimum["e"]
     re = minimum["r"]
-    
+
+    weights = weight_func(Er['r'].to_numpy())
+
     model = Model(Morse_1D)
     params = model.make_params(D=D, re=re, alpha=alpha_init)
     params['D'].vary = params['re'].vary = False
-    result = model.fit(Er['e'], params, r=Er['r'])
+    result = model.fit(Er['e'], params, r=Er['r'], weights=weights)
     alpha = result.params['alpha'].value
 
     fitted_data = pd.DataFrame([{
@@ -153,8 +160,12 @@ def fit_alpha_morse(df, phi_vals, screw_dir, alpha_init=1.2, smooth_factor=None,
 
 # ----------------------------------------------------------------------
 
-def fit_alpha_values(df, interaction, interpolate=True):
-    """Fit alpha values in the same angular order as the energy minima."""
+def fit_alpha_values(df, interaction, interpolate=True,
+                     weight_func=lambda r: np.ones_like(r)):
+    """Fit alpha values in the same angular order as the energy minima.
+
+    weight_func is forwarded to fit_alpha_morse for each orientation.
+    """
     screw_dir = get_screw_dir(interaction)
 
     E_min_df = extract_energy_minimums(df, r_max=12, interpolate=interpolate)
@@ -166,6 +177,7 @@ def fit_alpha_values(df, interaction, interpolate=True):
             screw_dir,
             smooth_factor=None,
             interpolate=interpolate,
+            weight_func=weight_func,
         )
         for row in E_min_df.itertuples(index=False)
     ]
@@ -213,10 +225,15 @@ def _parse_prune_arg(arg, keys=('D', 're', 'alpha')):
 
 def generate_fourier_morse_data(df, molecule, interaction, harmonic_ceils,
                                 alpha_fit=False, interpolate=True,
+                                weight_func=lambda r: np.ones_like(r),
                                 print_errors=True, near_eq_delta_r=.5,
                                 prune_model=False, prune_thresholds=None, prune_top_n=None):
     """Fit (and optionally prune) Fourier coefficients for D, r_e, and alpha, 
-       then evaluate the resulting anisotropic Morse model."""
+       then evaluate the resulting anisotropic Morse model.
+
+    weight_func is a callable mapping the radial coordinate to per-point fit
+    weights for the per-orientation alpha fits (equal weights by default).
+    """
     print_modeling_information(molecule, interaction, harmonic_ceils)
 
     E_min_df = extract_energy_minimums(df, r_max=12, interpolate=interpolate)
@@ -235,7 +252,8 @@ def generate_fourier_morse_data(df, molecule, interaction, harmonic_ceils,
     alpha_coeff = None
 
     if alpha_fit:
-        alpha_vals = fit_alpha_values(df, interaction, interpolate=interpolate)
+        alpha_vals = fit_alpha_values(df, interaction, interpolate=interpolate,
+                                      weight_func=weight_func)
         alpha_coeff, *_ = np.linalg.lstsq(A, alpha_vals, rcond=None)
 
     if prune_model:
