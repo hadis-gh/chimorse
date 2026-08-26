@@ -9,7 +9,8 @@ import numpy as np
 import pandas as pd
 from itertools import product
 from lmfit import Model
-from scipy.optimize import curve_fit
+from scipy.optimize import curve_fit, brentq
+from scipy.special import digamma, gammaln
 
 from .analysis import extract_energy_minimums, get_symm_chi, get_screw_dir, compute_energy_errors
 from .fourier import create_matrix_lsqt_2d, count_fourier_coeffs
@@ -120,6 +121,92 @@ def fit_Er_1D_lmfit(df, phi_vals, pot_model, init_params, fit_mode):
         'e': result.best_fit if fit_mode == 'fit' else pot_model(Er.r.values, *init_params)
     })
     return fitted_df
+
+# ----------------------------------------------------------------------
+
+def equal_weights(r):
+    """Constant unit weights — every data point contributes equally."""
+    return np.ones_like(r, dtype=float)
+
+
+def gaussian_weights(r, re, sigma=1.0):
+    """Gaussian weight distribution centered at the equilibrium distance r_e.
+
+    Matches the historical weighting used for the alpha fit: points close to
+    r_e are weighted most strongly, with a symmetric fall-off governed by sigma.
+    """
+    sigma = float(sigma)
+    if sigma <= 0:
+        raise ValueError("sigma must be positive")
+    return np.sqrt(np.exp(-0.5 * ((r - re) / sigma) ** 2))
+
+
+def _continuous_poisson_logw(x, lam):
+    """Log of the continuous (Gamma) Poisson mass function, safe for x > -1."""
+    return x * np.log(lam) - lam - gammaln(x + 1.0)
+
+
+def _continuous_poisson_mode(lam):
+    """Continuous mode of the Gamma-Poisson mass function (root of digamma)."""
+    if lam < 1.0:
+        return 0.0
+    target = np.log(lam)
+    hi = max(lam, 1.0)
+    while digamma(hi + 1.0) < target:
+        hi *= 2.0
+    return brentq(lambda x: digamma(x + 1.0) - target, 0.0, hi)
+
+
+def poisson_weights(r, re, lam=None):
+    """Poisson weight distribution whose maximum sits at the equilibrium distance r_e.
+
+    The Poisson shape is right-skewed (longer tail toward large r) and falls off
+    steeply below r_e, so it suppresses residuals from the steep repulsive side of
+    the potential without over-damping the large-r tail. ``lam`` sets the Poisson
+    parameter (spread/skew); it defaults to r_e, which keeps the mode at r_e.
+    """
+    lam = float(re) if lam is None else float(lam)
+    re = float(re)
+    if lam <= 0 or re <= 0:
+        raise ValueError("lam and re must be positive")
+
+    mode = _continuous_poisson_mode(lam)
+    # Shift the distribution so its mode maps exactly to r = re.
+    x = (r - re) + mode
+    x = np.asarray(x, dtype=float)
+
+    logw = np.full_like(x, -np.inf)
+    valid = x > -1.0
+    logw[valid] = _continuous_poisson_logw(x[valid], lam)
+    logw_mode = _continuous_poisson_logw(mode, lam)
+
+    w = np.exp(logw - logw_mode)
+    w = np.nan_to_num(w, nan=0.0, posinf=0.0, neginf=0.0)
+    return w
+
+
+def make_weight_func(name, re=None, sigma=1.0, lam=None):
+    """Return a weight callable ``w(r)`` for a named weight distribution.
+
+    name must be one of ``'equal'``, ``'gaussian'`` (center r_e, width sigma),
+    or ``'poisson'`` (mode at r_e, parameter lam). ``re`` is required for the
+    gaussian and poisson options.
+    """
+    name = str(name).lower()
+    if name == "equal":
+        return equal_weights
+    if name == "gaussian":
+        if re is None:
+            raise ValueError("gaussian weights require re")
+        return lambda r: gaussian_weights(r, re, sigma=sigma)
+    if name == "poisson":
+        if re is None:
+            raise ValueError("poisson weights require re")
+        return lambda r: poisson_weights(r, re, lam=lam)
+    raise ValueError(
+        f"Unknown weight distribution {name!r}; expected one of "
+        "{'equal', 'gaussian', 'poisson'}."
+    )
 
 # ----------------------------------------------------------------------
 
