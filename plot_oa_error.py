@@ -255,6 +255,7 @@ def plot_shifted_error(df_ref, df_model, out, csv_out=None):
     axr.plot(s, emax_pl, color="tab:red", ls=":", lw=1.2,
              label=r"$\max_{\phi_1,\phi_2} [E - E(r_e)]$")
     axr.set_ylabel(r"$E - E(r_e)$ (eV)")
+    axr.grid(which="major", axis="y", color="gray", lw=0.6)
 
     ax.set_xlim(s.min(), s.max())
     ax.set_ylim(0, 300)
@@ -267,6 +268,117 @@ def plot_shifted_error(df_ref, df_model, out, csv_out=None):
     fig.savefig(out)
     plt.close(fig)
     print("Saved", out)
+
+
+def plot_shifted_rel_error(df_ref, df_model, out, csv_out=None,
+                           ranges_csv_out=None, ranges_out=None,
+                           e_floor=25e-3, e_uppers=None):
+    """Relative error vs. shifted distance from equilibrium (fine grid, e < 0).
+
+    Per-point relative error is |delta_e| / max(|E|, e_floor), i.e.
+    delta_e/E for E >= e_floor and delta_e/e_floor for E < e_floor
+    (e_floor = 25 meV ~ room-temperature scale). Shown as mean and max
+    over orientations per fine-grid bin.
+
+    csv_out:      plot data written to CSV before plotting (same rows plotted).
+    ranges_csv_out / ranges_out: mean relative error over cumulative energy
+    ranges E < e_uppers (meV), written to a file and plotted.
+    """
+    join = shifted_aligned(df_ref, df_model, e_lt_zero=True)
+    join["E"] = np.abs(join["e_ref"])
+    join["rel_err"] = np.abs(join["delta_e"]) / np.maximum(join["E"], e_floor)
+
+    g = join.groupby("s")["rel_err"].agg([np.mean, np.max])
+    g.columns = ["rel_mean", "rel_max"]
+    e_agg = join.groupby("s")["e_rel"].agg(["min", "max"])
+    g = g.join(e_agg)
+
+    s_min, s_max = np.floor(join["s"].min() / FINE_R) * FINE_R, np.ceil(join["s"].max() / FINE_R) * FINE_R
+    s_grid = np.round(np.arange(s_min, s_max + FINE_R / 2, FINE_R), 4)
+
+    def to_grid(values):
+        arr = np.full(len(s_grid), np.nan)
+        idx = np.round((values.index.to_numpy() - s_grid[0]) / FINE_R).astype(int)
+        arr[idx] = values.to_numpy()
+        return arr
+
+    frame = pd.DataFrame(
+        {
+            "s": s_grid,
+            "mean_rel_err": to_grid(g["rel_mean"]),
+            "max_rel_err": to_grid(g["rel_max"]),
+            "Emin_eV": to_grid(g["min"]),
+            "Emax_eV": to_grid(g["max"]),
+        }
+    ).dropna()
+
+    if csv_out is not None:
+        frame.to_csv(csv_out, index=False)
+        print("Saved", csv_out, f"({len(frame)} rows)")
+
+    s = frame["s"].to_numpy()
+    rel_mean = frame["mean_rel_err"].to_numpy()
+    rel_max = frame["max_rel_err"].to_numpy()
+    emin_pl = frame["Emin_eV"].to_numpy()
+    emax_pl = frame["Emax_eV"].to_numpy()
+
+    fig, ax = plt.subplots(figsize=(8, 4.5))
+    ax.plot(s, rel_mean, color="tab:purple", ls="-", lw=1.6, label="mean rel. error")
+    ax.plot(s, rel_max, color="tab:brown", ls="-.", lw=1.4, label="max rel. error")
+    ax.axhline(0, color="k", ls=":", lw=0.8)
+    ax.axvline(0, color="k", ls="--", lw=0.8)
+    ax.set_xlabel("shifted distance $r - r_e$ (Å)")
+    ax.set_ylabel(r"relative error (ratio, not %): $|\Delta E|/\max(|E|, 25\,\mathrm{meV})$")
+    ax.set_title(f"OA {MOLECULE}: relative error vs. distance from equilibrium (E < 0)")
+    ax.yaxis.set_minor_locator(MultipleLocator(0.1))
+    ax.grid(which="minor", axis="y", color="black", lw=0.3, alpha=0.6)
+
+    axr = ax.twinx()
+    axr.plot(s, emin_pl, color="tab:blue", ls="--", lw=1.2,
+             label=r"$\min_{\phi_1,\phi_2} [E - E(r_e)]$")
+    axr.plot(s, emax_pl, color="tab:red", ls=":", lw=1.2,
+             label=r"$\max_{\phi_1,\phi_2} [E - E(r_e)]$")
+    axr.set_ylabel(r"$E - E(r_e)$ (eV)")
+    axr.grid(which="major", axis="y", color="gray", lw=0.6)
+
+    ax.set_xlim(s.min(), s.max())
+    lines_l, labels_l = ax.get_legend_handles_labels()
+    lines_r, labels_r = axr.get_legend_handles_labels()
+    ax.legend(lines_l + lines_r, labels_l + labels_r, loc="upper right", ncol=2)
+
+    fig.tight_layout()
+    os.makedirs("Figures", exist_ok=True)
+    fig.savefig(out)
+    plt.close(fig)
+    print("Saved", out)
+
+    # ---- mean relative error over cumulative energy ranges E < e_uppers ----
+    if e_uppers is None:
+        e_uppers = [50] + list(range(100, 1001, 100))  # 50,100,200,300,...,1000 meV
+    means = []
+    for upper in e_uppers:
+        mask = join["E"] < upper * 1e-3
+        if mask.sum() > 0:
+            means.append((upper, join["rel_err"][mask].mean()))
+    range_df = pd.DataFrame(means, columns=["E_upper_meV", "mean_rel_err"])
+
+    if ranges_csv_out is not None:
+        range_df.to_csv(ranges_csv_out, index=False)
+        print("Saved", ranges_csv_out, f"({len(range_df)} rows)")
+
+    if ranges_out is not None:
+        fgr, axr2 = plt.subplots(figsize=(7, 4))
+        axr2.plot(range_df["E_upper_meV"], range_df["mean_rel_err"],
+                  "o-", color="tab:green", lw=1.6)
+        axr2.set_xlabel("upper energy bound $E$ (meV)")
+        axr2.set_ylabel("mean relative error (ratio)")
+        axr2.set_title("OA: mean rel. error vs. energy window; "
+                       r"$|\Delta E|/\max(|E|,25\,\mathrm{meV})$")
+        fgr.tight_layout()
+        os.makedirs("Figures", exist_ok=True)
+        fgr.savefig(ranges_out)
+        plt.close(fgr)
+        print("Saved", ranges_out)
 
 
 def plot_waterfall(df_ref, df_model, out, n_curves=None):
@@ -310,6 +422,12 @@ plot_shifted_error(
     csv_out="Figures/oa_shifted_error_data.csv",
 )
 plot_waterfall(df_ref, df_model, "Figures/oa_waterfall.pdf")
+plot_shifted_rel_error(
+    df_ref, df_model, "Figures/oa_shifted_rel_error.pdf",
+    csv_out="Figures/oa_shifted_rel_error_data.csv",
+    ranges_csv_out="Figures/oa_rel_error_ranges.csv",
+    ranges_out="Figures/oa_rel_error_ranges.pdf",
+)
 
 
 def plot_top_rmse(df_ref, df_model, out_shifted, out_abs,
