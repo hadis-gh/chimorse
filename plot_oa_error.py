@@ -2,6 +2,7 @@
 import os
 
 import matplotlib.pyplot as plt
+from matplotlib.ticker import MultipleLocator
 import numpy as np
 import pandas as pd
 
@@ -232,14 +233,21 @@ def plot_shifted_error(df_ref, df_model, out, csv_out=None):
     emax_pl = frame["Emax_eV"].to_numpy()
 
     fig, ax = plt.subplots(figsize=(8, 4.5))
+    # distinguish Max |error| (brown, dash-dot) from max E - E(re) (red, dotted)
     ax.plot(s, mae_pl, color="tab:purple", ls="-", lw=1.6, label="MAE (model-ref)")
     ax.plot(s, rmse_pl, color="tab:olive", ls="-", lw=1.6, label="RMSE")
-    ax.plot(s, maxerr_pl, color="tab:red", ls=":", lw=1.4, label="Max |error|")
+    ax.plot(s, maxerr_pl, color="tab:brown", ls="-.", lw=1.4, label="Max |error|")
     ax.axhline(0, color="k", ls=":", lw=0.8)
     ax.axvline(0, color="k", ls="--", lw=0.8)
     ax.set_xlabel("shifted distance $r - r_e$ (Å)")
     ax.set_ylabel("ΔE (meV)")
     ax.set_title(f"OA {MOLECULE}: MAE/RMSE vs. distance from equilibrium (E < 0)")
+
+    # minor y-grid at 5 meV, major y-grid at 50 meV
+    ax.yaxis.set_minor_locator(MultipleLocator(5))
+    ax.yaxis.set_major_locator(MultipleLocator(50))
+    ax.grid(which="minor", axis="y", color="black", lw=0.3, alpha=0.6)
+    ax.grid(which="major", axis="y", color="black", lw=0.8)
 
     axr = ax.twinx()
     axr.plot(s, emin_pl, color="tab:blue", ls="--", lw=1.2,
