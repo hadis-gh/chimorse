@@ -124,8 +124,12 @@ def fit_Er_1D_lmfit(df, phi_vals, pot_model, init_params, fit_mode):
 
 # ----------------------------------------------------------------------
 
-def equal_weights(r):
-    """Constant unit weights — every data point contributes equally."""
+def equal_weights(r, re=None):
+    """Constant unit weights — every data point contributes equally.
+
+    The re argument is accepted for signature compatibility with the other
+    weight distributions but is unused.
+    """
     return np.ones_like(r, dtype=float)
 
 
@@ -185,24 +189,21 @@ def poisson_weights(r, re, lam=None):
     return w
 
 
-def make_weight_func(name, re=None, sigma=1.0, lam=None):
-    """Return a weight callable ``w(r)`` for a named weight distribution.
+def make_weight_func(name, sigma=1.0, lam=None):
+    """Return a weight callable ``w(r, re)`` for a named weight distribution.
 
     name must be one of ``'equal'``, ``'gaussian'`` (center r_e, width sigma),
-    or ``'poisson'`` (mode at r_e, parameter lam). ``re`` is required for the
-    gaussian and poisson options.
+    or ``'poisson'`` (mode at r_e, parameter lam). The returned callable takes
+    the radial coordinates and the equilibrium distance r_e, so the distribution
+    is centred at the per-orientation r_e during the fit.
     """
     name = str(name).lower()
     if name == "equal":
-        return equal_weights
+        return lambda r, re=None: np.ones_like(r, dtype=float)
     if name == "gaussian":
-        if re is None:
-            raise ValueError("gaussian weights require re")
-        return lambda r: gaussian_weights(r, re, sigma=sigma)
+        return lambda r, re: gaussian_weights(r, re, sigma=sigma)
     if name == "poisson":
-        if re is None:
-            raise ValueError("poisson weights require re")
-        return lambda r: poisson_weights(r, re, lam=lam)
+        return lambda r, re: poisson_weights(r, re, lam=lam)
     raise ValueError(
         f"Unknown weight distribution {name!r}; expected one of "
         "{'equal', 'gaussian', 'poisson'}."
@@ -211,12 +212,13 @@ def make_weight_func(name, re=None, sigma=1.0, lam=None):
 # ----------------------------------------------------------------------
 
 def fit_alpha_morse(df, phi_vals, screw_dir, alpha_init=1.2, smooth_factor=None,
-                    interpolate=True, weight_func=lambda r: np.ones_like(r)):
+                    interpolate=True, weight_func=equal_weights):
     """Fit the Morse alpha at fixed (phi1, phi2) with D and r_e fixed to the data minimum; 
        return a one-row DataFrame with chi, psi, D, re, alpha.
 
-    weight_func is a callable mapping the radial coordinate array to per-point
-    fit weights; it defaults to constant unit weights (equal weighting).
+    weight_func is a callable ``w(r, re)`` mapping the radial coordinate array
+    and the per-orientation equilibrium distance to per-point fit weights; it
+    defaults to equal weighting (constant unit weights).
     """
     phi1, phi2 = phi_vals
     mask = (df['phi1'] == phi1) & (df['phi2'] == phi2)
@@ -226,7 +228,7 @@ def fit_alpha_morse(df, phi_vals, screw_dir, alpha_init=1.2, smooth_factor=None,
     D = -minimum["e"]
     re = minimum["r"]
 
-    weights = weight_func(Er['r'].to_numpy())
+    weights = weight_func(Er['r'].to_numpy(), re=re)
 
     model = Model(Morse_1D)
     params = model.make_params(D=D, re=re, alpha=alpha_init)
@@ -248,10 +250,11 @@ def fit_alpha_morse(df, phi_vals, screw_dir, alpha_init=1.2, smooth_factor=None,
 # ----------------------------------------------------------------------
 
 def fit_alpha_values(df, interaction, interpolate=True,
-                     weight_func=lambda r: np.ones_like(r)):
+                     weight_func=equal_weights):
     """Fit alpha values in the same angular order as the energy minima.
 
-    weight_func is forwarded to fit_alpha_morse for each orientation.
+    weight_func (a callable ``w(r, re)``) is forwarded to fit_alpha_morse for
+    each orientation.
     """
     screw_dir = get_screw_dir(interaction)
 
@@ -312,14 +315,14 @@ def _parse_prune_arg(arg, keys=('D', 're', 'alpha')):
 
 def generate_fourier_morse_data(df, molecule, interaction, harmonic_ceils,
                                 alpha_fit=False, interpolate=True,
-                                weight_func=lambda r: np.ones_like(r),
+                                weight_func=equal_weights,
                                 print_errors=True, near_eq_delta_r=.5,
                                 prune_model=False, prune_thresholds=None, prune_top_n=None):
     """Fit (and optionally prune) Fourier coefficients for D, r_e, and alpha, 
        then evaluate the resulting anisotropic Morse model.
 
-    weight_func is a callable mapping the radial coordinate to per-point fit
-    weights for the per-orientation alpha fits (equal weights by default).
+    weight_func (a callable ``w(r, re)``) sets the per-point fit weights for the
+    per-orientation alpha fits (equal weights by default).
     """
     print_modeling_information(molecule, interaction, harmonic_ceils)
 
