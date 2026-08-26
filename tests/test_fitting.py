@@ -18,6 +18,7 @@ from chimorse.fitting import (
     equal_weights,
     gaussian_weights,
     poisson_weights,
+    energy_weights,
     make_weight_func,
 )
 from chimorse.analysis import extract_energy_minimums
@@ -118,7 +119,7 @@ def test_fit_alpha_morse_weights_change_result():
     df = pd.DataFrame({"phi1": 0, "phi2": 0, "r": r, "e": e})
 
     out_equal = fit_alpha_morse(df, (0, 0), screw_dir=1)
-    gauss = lambda rr, re: gaussian_weights(rr, re, sigma=0.5)
+    gauss = lambda rr, re=None, e=None, e_min=None: gaussian_weights(rr, re, sigma=0.5)
     out_weighted = fit_alpha_morse(df, (0, 0), screw_dir=1, weight_func=gauss)
 
     assert out_weighted["alpha"].iloc[0] != pytest.approx(out_equal["alpha"].iloc[0], rel=1e-2)
@@ -153,11 +154,37 @@ def test_poisson_weights_mode_at_re():
         assert w.min() >= 0.0
 
 
+def test_energy_weights_peak_at_minimum_and_floor_eps():
+    r = np.linspace(7.0, 11.0, 200)
+    re = 9.0
+    # well-shaped binding energy: deep at re, rising (repulsive) below, ~0 tail above
+    e = -1.5 * np.exp(-1.1 * (r - re) ** 2) + 3.0 * np.exp(-2.5 * (r - re)) * (np.exp(-2.5 * (r - re)) - 2)
+    e_min = e.min()
+
+    w = energy_weights(r, e, re=re, e_min=e_min)
+    assert np.isfinite(w).all()
+    assert (w >= 0.0).all()
+    # deepest (most negative) energy region gets the largest weight
+    imin = np.argmin(e)
+    assert w[imin] == pytest.approx(w.max(), rel=1e-3)
+    # repulsive (high-energy) points are suppressed to the sqrt(eps) floor
+    irep = np.argmax(e)
+    assert w[irep] == pytest.approx(np.sqrt(1e-4), rel=1e-3)
+    # a negative eps is rejected
+    with pytest.raises(ValueError):
+        energy_weights(r, e, re=re, e_min=e_min, eps=-1.0)
+
+
 def test_make_weight_func_dispatch():
     r = np.linspace(6.8, 11.5, 50)
     assert np.allclose(make_weight_func("equal")(r), 1.0)
     assert make_weight_func("gaussian", sigma=0.7)(np.array([9.0]), 9.0) == pytest.approx(1.0)
     assert make_weight_func("poisson", lam=5.0)(np.array([9.0]), 9.0) == pytest.approx(1.0, abs=1e-3)
+    # energy weights tie to the energy values and use the configured eps
+    re = 9.0
+    e = -1.5 * np.exp(-1.0 * (r - re) ** 2)
+    w = make_weight_func("energy", eps=1e-6)(r, re, e=e, e_min=e.min())
+    assert np.isfinite(w).all()
     with pytest.raises(ValueError):
         make_weight_func("bogus")
 
