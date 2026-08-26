@@ -275,17 +275,18 @@ def plot_shifted_rel_error(df_ref, df_model, out, csv_out=None,
                            e_floor=25e-3, e_uppers=None):
     """Relative error vs. shifted distance from equilibrium (fine grid, e < 0).
 
-    Per-point relative error is |delta_e| / max(|E|, e_floor), i.e.
-    delta_e/E for E >= e_floor and delta_e/e_floor for E < e_floor
-    (e_floor = 25 meV ~ room-temperature scale). Shown as mean and max
-    over orientations per fine-grid bin.
+    The reference energy E is the energy above the equilibrium minimum,
+    E = e_ref - e_min = E - E(r_e). Per-point relative error is
+    |delta_e| / max(E, e_floor), i.e. delta_e/E for E >= e_floor and
+    delta_e/e_floor for E < e_floor (e_floor = 25 meV ~ room-temperature).
+    Shown as mean and max over orientations per fine-grid bin.
 
     csv_out:      plot data written to CSV before plotting (same rows plotted).
     ranges_csv_out / ranges_out: mean relative error over cumulative energy
     ranges E < e_uppers (meV), written to a file and plotted.
     """
     join = shifted_aligned(df_ref, df_model, e_lt_zero=True)
-    join["E"] = np.abs(join["e_ref"])
+    join["E"] = join["e_rel"]
     join["rel_err"] = np.abs(join["delta_e"]) / np.maximum(join["E"], e_floor)
 
     g = join.groupby("s")["rel_err"].agg([np.mean, np.max])
@@ -329,7 +330,7 @@ def plot_shifted_rel_error(df_ref, df_model, out, csv_out=None,
         ax.plot(s, rel_max, color="tab:brown", ls="-.", lw=1.4, label="max rel. error")
         ax.axhline(0, color="k", ls=":", lw=0.8)
         ax.axvline(0, color="k", ls="--", lw=0.8)
-        ax.set_ylabel(r"rel. error $|\Delta E|/\max(|E|,25\,\mathrm{meV})$")
+        ax.set_ylabel(r"rel. error $|\Delta E|/\max(E{-}E(r_e),25\,\mathrm{meV})$")
         if title is not None:
             ax.set_title(title)
         ax.yaxis.set_minor_locator(MultipleLocator(0.1))
@@ -393,7 +394,7 @@ def plot_shifted_rel_error(df_ref, df_model, out, csv_out=None,
         axr2.set_xlabel("upper energy bound $E$ (meV)")
         axr2.set_ylabel("mean relative error (ratio)")
         axr2.set_title("OA: mean rel. error vs. energy window; "
-                       r"$|\Delta E|/\max(|E|,25\,\mathrm{meV})$")
+                       r"$|\Delta E|/\max(E{-}E(r_e),25\,\mathrm{meV})$")
         fgr.tight_layout()
         os.makedirs("Figures", exist_ok=True)
         fgr.savefig(ranges_out)
@@ -439,10 +440,11 @@ def plot_waterfall(df_ref, df_model, out, n_curves=None):
 
 def plot_selected_series(df_ref, df_model, out, csv_out, log_out, e_floor=25e-3):
     """Plot E(r) (data=points, fit=lines) for orientations selected by largest
-    relative E-error over several regions:
-      R1: r < r_e and E(r) > 0         -> max-max and max-mean
+    relative E-error over several regions. The reference energy E is the
+    energy above the equilibrium minimum, E = e_ref - e_min = E - E(r_e):
+      R1: r < r_e and E > 0            -> max-max and max-mean
       R2: r > r_e                      -> max-max and max-mean
-      R3: |E(r)| < 100 meV             -> max-max and max-mean
+      R3: E < 100 meV                  -> max-max and max-mean
     Before plotting the selected curves are written to csv_out and the chosen
     orientations / error statistics to log_out.
     """
@@ -451,10 +453,10 @@ def plot_selected_series(df_ref, df_model, out, csv_out, log_out, e_floor=25e-3)
     re = extract_energy_minimums(df_ref, r_max=12)[["phi1", "phi2", "r"]] \
         .rename(columns={"r": "re"})
     join = join.merge(re, on=["phi1", "phi2"], how="left")
-    join["E"] = np.abs(join["e_ref"])
+    join["E"] = join["e_rel"]
     join["rel_err"] = np.abs(join["delta_e"]) / np.maximum(join["E"], e_floor)
 
-    join["R1"] = (join["r"] < join["re"]) & (join["e_ref"] > 0)
+    join["R1"] = (join["r"] < join["re"]) & (join["E"] > 0)
     join["R2"] = join["r"] > join["re"]
     join["R3"] = join["E"] < 0.1  # 100 meV
 
@@ -491,7 +493,7 @@ def plot_selected_series(df_ref, df_model, out, csv_out, log_out, e_floor=25e-3)
     # ---- log chosen orientations and underlying error values ----
     lines = [
         "# phi1\tphi2\tselection\trelative_err_stat\tabsolute_err_stat_(eV)",
-        "# relative_err_stat: max or mean |delta_e|/max(|E|,25meV) in the region",
+        "# relative_err_stat: max or mean |delta_e|/max(E-E(re),25meV) in the region",
         "# absolute_err_stat: max or mean |delta_e| (eV) in the region",
     ]
     for label, phi1, phi2, relv, abserr in sel:
