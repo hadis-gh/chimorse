@@ -105,6 +105,35 @@ def test_fit_alpha_morse_uses_interpolated_minimum():
     assert np.isfinite(out["alpha"].iloc[0])
 
 
+def test_fit_alpha_morse_weights_change_result():
+    """Different weight functions must yield different fitted alpha values, proving the
+    weight_func callable is actually applied during the fit."""
+    D_true, re_true, alpha_true = 1.0, 9.0, 1.25
+    r = np.arange(7.0, 11.01, 0.25)  # grid includes re = 9.0
+    e = Morse_1D(r, D_true, re_true, alpha_true)
+    df = pd.DataFrame({"phi1": 0, "phi2": 0, "r": r, "e": e})
+
+    out_equal = fit_alpha_morse(df, (0, 0), screw_dir=1)
+    gauss = lambda rr: np.sqrt(np.exp(-0.5 * ((rr - re_true) / 0.5) ** 2))
+    out_weighted = fit_alpha_morse(df, (0, 0), screw_dir=1, weight_func=gauss)
+
+    assert out_weighted["alpha"].iloc[0] != pytest.approx(out_equal["alpha"].iloc[0], rel=1e-2)
+
+
+def test_fit_alpha_morse_default_matches_equal_weights():
+    """The default weight_func gives the same result as an explicit constant-1 weight."""
+    D_true, re_true, alpha_true = 1.0, 9.0, 1.25
+    r = np.arange(7.0, 11.01, 0.25)
+    e = Morse_1D(r, D_true, re_true, alpha_true)
+    df = pd.DataFrame({"phi1": 0, "phi2": 0, "r": r, "e": e})
+
+    out_default = fit_alpha_morse(df, (0, 0), screw_dir=1)
+    out_const = fit_alpha_morse(df, (0, 0), screw_dir=1,
+                                weight_func=lambda rr: np.ones_like(rr))
+
+    assert out_default["alpha"].iloc[0] == pytest.approx(out_const["alpha"].iloc[0], rel=1e-9)
+
+
 def test_generate_fourier_morse_recovers_constant_potential():
     """End-to-end: an orientation-independent Morse surface is recovered to float precision.
 
