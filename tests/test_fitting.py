@@ -118,7 +118,7 @@ def test_fit_alpha_morse_weights_change_result():
     df = pd.DataFrame({"phi1": 0, "phi2": 0, "r": r, "e": e})
 
     out_equal = fit_alpha_morse(df, (0, 0), screw_dir=1)
-    gauss = lambda rr: np.sqrt(np.exp(-0.5 * ((rr - re_true) / 0.5) ** 2))
+    gauss = lambda rr, re: gaussian_weights(rr, re, sigma=0.5)
     out_weighted = fit_alpha_morse(df, (0, 0), screw_dir=1, weight_func=gauss)
 
     assert out_weighted["alpha"].iloc[0] != pytest.approx(out_equal["alpha"].iloc[0], rel=1e-2)
@@ -156,12 +156,10 @@ def test_poisson_weights_mode_at_re():
 def test_make_weight_func_dispatch():
     r = np.linspace(6.8, 11.5, 50)
     assert np.allclose(make_weight_func("equal")(r), 1.0)
-    assert make_weight_func("gaussian", re=9.0)(np.array([9.0])) == pytest.approx(1.0)
-    assert make_weight_func("poisson", re=9.0)(np.array([9.0])) == pytest.approx(1.0, abs=1e-3)
+    assert make_weight_func("gaussian", sigma=0.7)(np.array([9.0]), 9.0) == pytest.approx(1.0)
+    assert make_weight_func("poisson", lam=5.0)(np.array([9.0]), 9.0) == pytest.approx(1.0, abs=1e-3)
     with pytest.raises(ValueError):
-        make_weight_func("gaussian")  # re required
-    with pytest.raises(ValueError):
-        make_weight_func("bogus", re=9.0)
+        make_weight_func("bogus")
 
 
 def test_fit_alpha_morse_default_matches_equal_weights():
@@ -173,7 +171,7 @@ def test_fit_alpha_morse_default_matches_equal_weights():
 
     out_default = fit_alpha_morse(df, (0, 0), screw_dir=1)
     out_const = fit_alpha_morse(df, (0, 0), screw_dir=1,
-                                weight_func=lambda rr: np.ones_like(rr))
+                                weight_func=equal_weights)
 
     assert out_default["alpha"].iloc[0] == pytest.approx(out_const["alpha"].iloc[0], rel=1e-9)
 
