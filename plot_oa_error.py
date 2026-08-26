@@ -322,29 +322,49 @@ def plot_shifted_rel_error(df_ref, df_model, out, csv_out=None,
     emin_pl = frame["Emin_eV"].to_numpy()
     emax_pl = frame["Emax_eV"].to_numpy()
 
-    fig, ax = plt.subplots(figsize=(8, 4.5))
-    ax.plot(s, rel_mean, color="tab:purple", ls="-", lw=1.6, label="mean rel. error")
-    ax.plot(s, rel_max, color="tab:brown", ls="-.", lw=1.4, label="max rel. error")
-    ax.axhline(0, color="k", ls=":", lw=0.8)
-    ax.axvline(0, color="k", ls="--", lw=0.8)
-    ax.set_xlabel("shifted distance $r - r_e$ (Å)")
-    ax.set_ylabel(r"relative error (ratio, not %): $|\Delta E|/\max(|E|, 25\,\mathrm{meV})$")
-    ax.set_title(f"OA {MOLECULE}: relative error vs. distance from equilibrium (E < 0)")
-    ax.yaxis.set_minor_locator(MultipleLocator(0.1))
-    ax.grid(which="minor", axis="y", color="black", lw=0.3, alpha=0.6)
+    def render_panel(ax, axr, rel_ymax=None, e_ymax=None,
+                      xlabel=False, title=None):
+        """Plot the relative-error curves (left) and min/max E-E(re) (right)."""
+        ax.plot(s, rel_mean, color="tab:purple", ls="-", lw=1.6, label="mean rel. error")
+        ax.plot(s, rel_max, color="tab:brown", ls="-.", lw=1.4, label="max rel. error")
+        ax.axhline(0, color="k", ls=":", lw=0.8)
+        ax.axvline(0, color="k", ls="--", lw=0.8)
+        ax.set_ylabel(r"rel. error $|\Delta E|/\max(|E|,25\,\mathrm{meV})$")
+        if title is not None:
+            ax.set_title(title)
+        ax.yaxis.set_minor_locator(MultipleLocator(0.1))
+        ax.grid(which="minor", axis="y", color="black", lw=0.3, alpha=0.6)
 
-    axr = ax.twinx()
-    axr.plot(s, emin_pl, color="tab:blue", ls="--", lw=1.2,
-             label=r"$\min_{\phi_1,\phi_2} [E - E(r_e)]$")
-    axr.plot(s, emax_pl, color="tab:red", ls=":", lw=1.2,
-             label=r"$\max_{\phi_1,\phi_2} [E - E(r_e)]$")
-    axr.set_ylabel(r"$E - E(r_e)$ (eV)")
-    axr.grid(which="major", axis="y", color="gray", lw=0.6)
+        axr.plot(s, emin_pl, color="tab:blue", ls="--", lw=1.2,
+                 label=r"$\min_{\phi_1,\phi_2} [E - E(r_e)]$")
+        axr.plot(s, emax_pl, color="tab:red", ls=":", lw=1.2,
+                 label=r"$\max_{\phi_1,\phi_2} [E - E(r_e)]$")
+        axr.set_ylabel(r"$E - E(r_e)$ (eV)")
+        axr.grid(which="major", axis="y", color="gray", lw=0.6)
 
-    ax.set_xlim(s.min(), s.max())
-    lines_l, labels_l = ax.get_legend_handles_labels()
-    lines_r, labels_r = axr.get_legend_handles_labels()
-    ax.legend(lines_l + lines_r, labels_l + labels_r, loc="upper right", ncol=2)
+        ax.set_xlim(s.min(), s.max())
+        if rel_ymax is not None:
+            ax.set_ylim(0, rel_ymax)
+        if e_ymax is not None:
+            axr.set_ylim(0, e_ymax)
+        if xlabel:
+            ax.set_xlabel("shifted distance $r - r_e$ (Å)")
+
+        lines_l, labels_l = ax.get_legend_handles_labels()
+        lines_r, labels_r = axr.get_legend_handles_labels()
+        ax.legend(lines_l + lines_r, labels_l + labels_r, loc="upper right", ncol=2)
+
+    fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(8, 8), sharex=True)
+    axr1 = ax1.twinx()
+    axr2 = ax2.twinx()
+
+    render_panel(ax1, axr1,
+                 title=f"OA {MOLECULE}: relative error vs. distance from equilibrium (E < 0)")
+
+    # zoom panel: relative errors below 0.5 (left) and energies up to 200 meV (right)
+    render_panel(ax2, axr2, rel_ymax=0.5, e_ymax=0.2,
+                 xlabel=True,
+                 title="zoom: rel. error ≤ 0.5, E − E(r_e) ≤ 200 meV")
 
     fig.tight_layout()
     os.makedirs("Figures", exist_ok=True)
@@ -417,6 +437,91 @@ def plot_waterfall(df_ref, df_model, out, n_curves=None):
     print("Saved", out)
 
 
+def plot_selected_series(df_ref, df_model, out, csv_out, log_out, e_floor=25e-3):
+    """Plot E(r) (data=points, fit=lines) for orientations selected by largest
+    relative E-error over several regions:
+      R1: r < r_e and E(r) > 0         -> max-max and max-mean
+      R2: r > r_e                      -> max-max and max-mean
+      R3: |E(r)| < 100 meV             -> max-max and max-mean
+    Before plotting the selected curves are written to csv_out and the chosen
+    orientations / error statistics to log_out.
+    """
+    join = shifted_aligned(df_ref, df_model, e_lt_zero=False)
+    # true equilibrium distance per orientation (unrounded)
+    re = extract_energy_minimums(df_ref, r_max=12)[["phi1", "phi2", "r"]] \
+        .rename(columns={"r": "re"})
+    join = join.merge(re, on=["phi1", "phi2"], how="left")
+    join["E"] = np.abs(join["e_ref"])
+    join["rel_err"] = np.abs(join["delta_e"]) / np.maximum(join["E"], e_floor)
+
+    join["R1"] = (join["r"] < join["re"]) & (join["e_ref"] > 0)
+    join["R2"] = join["r"] > join["re"]
+    join["R3"] = join["E"] < 0.1  # 100 meV
+
+    def pick(region_col, agg_name, label):
+        sub = join.loc[join[region_col]]
+        rel = sub.groupby(["phi1", "phi2"])["rel_err"].agg(agg_name)
+        absg = sub.groupby(["phi1", "phi2"])["delta_e"].apply(
+            lambda x: np.max(np.abs(x)) if agg_name == "max" else np.mean(np.abs(x))
+        )
+        key = rel.idxmax()
+        return (label, key[0], key[1], rel[key], absg[key])
+
+    sel = [
+        pick("R1", "max", "R1<re,E>0 max-max"),
+        pick("R1", "mean", "R1<re,E>0 max-mean"),
+        pick("R2", "max", "R2>re max-max"),
+        pick("R2", "mean", "R2>re max-mean"),
+        pick("R3", "max", "R3<E<100meV max-max"),
+        pick("R3", "mean", "R3<E<100meV max-mean"),
+    ]
+
+    # ---- write selected curves to CSV before plotting ----
+    frames = []
+    for label, phi1, phi2, relv, abserr in sel:
+        sub = join[(join["phi1"] == phi1) & (join["phi2"] == phi2)].copy()
+        sub["selection"] = label
+        frames.append(sub[["selection", "phi1", "phi2", "r", "s",
+                           "e_ref", "e_model", "delta_e", "rel_err"]])
+    csv_df = pd.concat(frames, ignore_index=True)
+    os.makedirs(os.path.dirname(csv_out) or ".", exist_ok=True)
+    csv_df.to_csv(csv_out, index=False)
+    print("Saved", csv_out, f"({len(csv_df)} rows)")
+
+    # ---- log chosen orientations and underlying error values ----
+    lines = [
+        "# phi1\tphi2\tselection\trelative_err_stat\tabsolute_err_stat_(eV)",
+        "# relative_err_stat: max or mean |delta_e|/max(|E|,25meV) in the region",
+        "# absolute_err_stat: max or mean |delta_e| (eV) in the region",
+    ]
+    for label, phi1, phi2, relv, abserr in sel:
+        lines.append(f"{phi1}\t{phi2}\t{label}\t{relv:.6e}\t{abserr:.6e}")
+    os.makedirs(os.path.dirname(log_out) or ".", exist_ok=True)
+    with open(log_out, "w") as f:
+        f.write("\n".join(lines) + "\n")
+    print("Saved", log_out)
+
+    # ---- plot: data as points, fit as lines ----
+    fig, ax = plt.subplots(figsize=(8, 6))
+    cmap = plt.get_cmap("tab10")
+    for k, (label, phi1, phi2, relv, abserr) in enumerate(sel):
+        sub = csv_df[csv_df["selection"] == label]
+        color = cmap(k % 10)
+        ax.plot(sub["r"], sub["e_model"], color=color, ls="-", lw=1.5,
+                label=f"{label}  (φ1={phi1}, φ2={phi2})")
+        ax.plot(sub["r"], sub["e_ref"], color=color, ls="none", marker="o", ms=3)
+    ax.axhline(0, color="k", ls=":", lw=0.8)
+    ax.set_xlabel("r (Å)")
+    ax.set_ylabel("E (eV)")
+    ax.set_title("OA: selected orientations — fit (lines) vs data (points)")
+    ax.legend(loc="best", fontsize=7)
+    fig.tight_layout()
+    os.makedirs(os.path.dirname(out) or ".", exist_ok=True)
+    fig.savefig(out)
+    plt.close(fig)
+    print("Saved", out)
+
+
 plot_shifted_error(
     df_ref, df_model, "Figures/oa_shifted_error.pdf",
     csv_out="Figures/oa_shifted_error_data.csv",
@@ -427,6 +532,12 @@ plot_shifted_rel_error(
     csv_out="Figures/oa_shifted_rel_error_data.csv",
     ranges_csv_out="Figures/oa_rel_error_ranges.csv",
     ranges_out="Figures/oa_rel_error_ranges.pdf",
+)
+plot_selected_series(
+    df_ref, df_model,
+    "Figures/oa_selected_series.pdf",
+    "Figures/oa_selected_series_data.csv",
+    "Figures/oa_selected_series_log.txt",
 )
 
 
