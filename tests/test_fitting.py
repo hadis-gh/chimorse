@@ -15,6 +15,10 @@ from chimorse.fitting import (
     create_morse_model,
     fit_alpha_morse,
     generate_fourier_morse_data,
+    equal_weights,
+    gaussian_weights,
+    poisson_weights,
+    make_weight_func,
 )
 from chimorse.analysis import extract_energy_minimums
 
@@ -118,6 +122,46 @@ def test_fit_alpha_morse_weights_change_result():
     out_weighted = fit_alpha_morse(df, (0, 0), screw_dir=1, weight_func=gauss)
 
     assert out_weighted["alpha"].iloc[0] != pytest.approx(out_equal["alpha"].iloc[0], rel=1e-2)
+
+
+def test_equal_weights_are_constant_one():
+    r = np.linspace(6.8, 11.5, 50)
+    assert np.allclose(equal_weights(r), 1.0)
+
+
+def test_gaussian_weights_peak_at_re():
+    re = 9.125
+    w_re = gaussian_weights(np.array([re]), re, sigma=0.7)
+    assert w_re.max() == pytest.approx(1.0, abs=1e-6)
+    # On a discrete grid the maximum is at the point nearest r_e.
+    r = np.linspace(6.8, 11.5, 200)
+    w = gaussian_weights(r, re, sigma=0.7)
+    assert w.max() == pytest.approx(1.0, rel=1e-2)
+    assert abs(r[np.argmax(w)] - re) < 0.05
+    with pytest.raises(ValueError):
+        gaussian_weights(r, re, sigma=0.0)
+
+
+def test_poisson_weights_mode_at_re():
+    r = np.linspace(6.8, 11.5, 300)
+    re = 9.125
+    for lam in (3.0, re, 15.0):
+        w = poisson_weights(r, re, lam=lam)
+        assert r[np.argmax(w)] == pytest.approx(re, abs=1e-2)
+        assert w.max() == pytest.approx(1.0, abs=1e-6)
+        assert np.isfinite(w).all()
+        assert w.min() >= 0.0
+
+
+def test_make_weight_func_dispatch():
+    r = np.linspace(6.8, 11.5, 50)
+    assert np.allclose(make_weight_func("equal")(r), 1.0)
+    assert make_weight_func("gaussian", re=9.0)(np.array([9.0])) == pytest.approx(1.0)
+    assert make_weight_func("poisson", re=9.0)(np.array([9.0])) == pytest.approx(1.0, abs=1e-3)
+    with pytest.raises(ValueError):
+        make_weight_func("gaussian")  # re required
+    with pytest.raises(ValueError):
+        make_weight_func("bogus", re=9.0)
 
 
 def test_fit_alpha_morse_default_matches_equal_weights():
