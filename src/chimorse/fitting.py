@@ -130,9 +130,10 @@ def fit_alpha_morse(df, phi_vals, screw_dir, alpha_init=1.2, smooth_factor=None)
     mask = (df['phi1'] == phi1) & (df['phi2'] == phi2)
     Er = df[mask].copy()
 
-    e_vals = Er['e']
-    D = -e_vals.min()
-    re = Er.loc[Er["e"].idxmin(), "r"]
+    minimum = extract_energy_minimums(Er).iloc[0]
+    D = -minimum["e"]
+    re = minimum["r"]
+    
     model = Model(Morse_1D)
     params = model.make_params(D=D, re=re, alpha=alpha_init)
     params['D'].vary = params['re'].vary = False
