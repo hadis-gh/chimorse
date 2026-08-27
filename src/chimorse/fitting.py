@@ -191,24 +191,26 @@ def poisson_weights(r, re, lam=None, e=None, e_min=None):
     return w
 
 
-def energy_weights(r, e, re=None, e_min=None, eps=1e-4):
+def energy_weights(r, e, re=None, e_min=None, eps=1e-4, lam=1 / 4):
     """Energy-tied weight distribution.
 
-    weight(r) = sqrt(max(E_min - E(r) - E(re), eps))
+    weight(r) = sqrt(max(|e_min| - (e - e_re)^lam, eps))
 
-    E_min is the global minimum energy of the data (most negative value), E(r)
-    the energy at radial distance r, and E(re) the energy at the equilibrium
-    distance (the per-orientation minimum). The weight grows as the energy drops
-    toward the global minimum and is suppressed on the steep repulsive side
-    (where E(r) rises), hence it is directly tied to the energy values.
-    Points whose energy lies far below the global minimum are floored at
-    sqrt(eps).
+    e_min is the global minimum energy of the data (most negative value), e the
+    energy at radial distance r, and e_re the energy at the equilibrium distance
+    (the per-orientation minimum). The term (e - e_re) is the energy above the
+    orientation minimum, raised to the power lam (default 1/4); |e_min| provides
+    the scale. The weight grows as the energy drops toward the orientation
+    minimum and is suppressed on the steep repulsive side (where e rises),
+    hence it is directly tied to the energy values. Points where
+    |e_min| - (e - e_re)^lam would fall below the floor are floored at sqrt(eps).
     """
     r = np.asarray(r, dtype=float)
     e = np.asarray(e, dtype=float)
 
     e_min = float(e_min) if e_min is not None else float(np.min(e))
     eps = float(eps)
+    lam = float(lam)
     if eps <= 0:
         raise ValueError("eps must be positive")
 
@@ -218,7 +220,11 @@ def energy_weights(r, e, re=None, e_min=None, eps=1e-4):
     else:
         e_re = float(np.min(e))
 
-    arg = e_min - e - e_re
+    # Energy above the per-orientation minimum, clamped non-negative for a
+    # fractional power.
+    delta = np.maximum(e - e_re, 0.0)
+
+    arg = abs(e_min) - delta ** lam
     return np.sqrt(np.maximum(arg, eps))
 
 
@@ -240,8 +246,9 @@ def make_weight_func(name, sigma=1.0, lam=None, eps=1e-4):
     if name == "poisson":
         return lambda r, re=None, e=None, e_min=None: poisson_weights(r, re, lam=lam)
     if name == "energy":
+        lam_e = 1 / 4 if lam is None else lam
         return lambda r, re=None, e=None, e_min=None: energy_weights(
-            r, e, re=re, e_min=e_min, eps=eps
+            r, e, re=re, e_min=e_min, eps=eps, lam=lam_e
         )
     raise ValueError(
         f"Unknown weight distribution {name!r}; expected one of "
