@@ -54,13 +54,8 @@ def infer_screw_direction(df):
 
 # ----------------------------------------------------------------------
 
-def extract_energy_minimums(df, r_max=12, interpolate=True, n_points=5):
-    """
-    Return the minimum-energy configuration for each angular orientation.
-
-    If interpolate=True, estimate r_e and E_min continuously from a
-    local quadratic fit around the lowest sampled radial point.
-    """
+def extract_energy_minimums(df, r_max=12):
+    """Return the minimum-energy row for each physical angular configuration."""
     required = {"phi1", "phi2", "r", "e"}
     missing = required - set(df.columns)
 
@@ -79,27 +74,12 @@ def extract_energy_minimums(df, r_max=12, interpolate=True, n_points=5):
     if "zeta" in data.columns:
         group_cols.append("zeta")
 
-    rows = []
+    idx = data.groupby(
+        group_cols,
+        dropna=False
+    )["e"].idxmin()
 
-    for _, profile in data.groupby(group_cols, dropna=False):
-
-        # Start from the actual sampled minimum row so that
-        # phi1, phi2, chi, psi, zeta, etc. are preserved.
-        idx = profile["e"].idxmin()
-        row = profile.loc[idx].copy()
-
-        if interpolate:
-            re, e_min = _quadratic_energy_minimum(
-                profile,
-                n_points=n_points,
-            )
-
-            row["r"] = re
-            row["e"] = e_min
-
-        rows.append(row)
-
-    return pd.DataFrame(rows).reset_index(drop=True)
+    return data.loc[idx].reset_index(drop=True)
 
 # ----------------------------------------------------------------------
 

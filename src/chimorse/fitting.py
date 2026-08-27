@@ -131,23 +131,8 @@ def fit_alpha_morse(df, phi_vals, screw_dir, alpha_init=1.2, smooth_factor=None)
     Er = df[mask].copy()
 
     e_vals = Er['e']
-    if smooth_factor:
-        r_smooth, e_vals = smooth_energy_profile(
-            Er['r'].values,
-            Er['e'].values,
-            smooth_factor=smooth_factor
-        )
-
-    minimum = extract_energy_minimums(
-            Er,
-            r_max=12,
-            interpolate=True,
-            n_points=5,
-            ).iloc[0]
-
-    D = -minimum["e"]
-    re = minimum["r"]
-
+    D = -e_vals.min()
+    re = Er.loc[Er["e"].idxmin(), "r"]
     model = Model(Morse_1D)
     params = model.make_params(D=D, re=re, alpha=alpha_init)
     params['D'].vary = params['re'].vary = False

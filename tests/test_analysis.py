@@ -98,32 +98,3 @@ def test_compute_energy_errors_zero_for_identical_inputs():
     assert errors["E_rmse"] == pytest.approx(0.0, abs=1e-12)
     assert errors["D_rmse"] == pytest.approx(0.0, abs=1e-12)
     assert errors["re_rmse"] == pytest.approx(0.0, abs=1e-12)
-
-
-def test_extract_energy_minimums_interpolates_between_grid_points():
-
-    r = np.array([8.8, 9.0, 9.2, 9.4, 9.6])
-
-    re_true = 9.27
-    e_min_true = -1.2
-
-    e = 0.5 * (r - re_true)**2 + e_min_true
-
-    df = pd.DataFrame({
-        "phi1": 0,
-        "phi2": 0,
-        "chi": 0,
-        "psi": 0,
-        "r": r,
-        "e": e,
-    })
-
-    out = extract_energy_minimums(
-        df,
-        r_max=12,
-        interpolate=True,
-        n_points=5,
-    )
-
-    assert out.loc[0, "r"] == pytest.approx(re_true)
-    assert out.loc[0, "e"] == pytest.approx(e_min_true)
