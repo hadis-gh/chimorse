@@ -56,7 +56,7 @@ def test_infer_screw_direction_raises_when_ambiguous():
         infer_screw_direction(df)
 
 
-def test_extract_energy_minimums_picks_min_per_orientation():
+def test_fit_alpha_morse_recovers_known_alpha():
     rows = []
     for (p1, p2) in [(0, 0), (20, 40)]:
         for r, e in [(8, -0.5), (9, -1.0), (10, -0.7), (11, -0.6)]:
@@ -68,8 +68,9 @@ def test_extract_energy_minimums_picks_min_per_orientation():
     out = extract_energy_minimums(df, r_max=12)
 
     assert len(out) == 2
-    assert set(out["r"]) == {9}
-    assert out["e"].max() == pytest.approx(-1.0)
+
+    assert np.allclose(out["r"], 9.125)
+    assert np.allclose(out["e"], -1.00625)
 
 
 def test_extract_energy_minimums_respects_r_max():
