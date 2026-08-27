@@ -27,6 +27,7 @@ dependencies = [
     "matplotlib",
     "seaborn",
     "lmfit",
+    "sympy",
 ]
 
 
@@ -43,6 +44,13 @@ test = ["pytest>=7.0"]
 docs = [
     "sphinx>=7.2",
     "furo>=2024.8.6",
+]
+
+examples = [
+    "jupyter-client",
+    "ipykernel",
+    "nbformat",
+    "nbconvert",
 ]
 
 [tool.pytest.ini_options]
