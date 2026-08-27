@@ -54,7 +54,7 @@ def infer_screw_direction(df):
 
 # ----------------------------------------------------------------------
 
-def extract_energy_minimums(df, r_max=12):
+def extract_energy_minimums(df, r_max=12, interpolate=True):
     """Return the minimum-energy row for each physical angular configuration."""
     required = {"phi1", "phi2", "r", "e"}
     missing = required - set(df.columns)
@@ -74,6 +74,10 @@ def extract_energy_minimums(df, r_max=12):
     if "zeta" in data.columns:
         group_cols.append("zeta")
 
+    if not interpolate:
+        idx = data.groupby(group_cols, dropna=False)["e"].idxmin()
+        return data.loc[idx].reset_index(drop=True)
+
     rows = [
         _interpolate_energy_minimum(group)
         for _, group in data.groupby(group_cols, dropna=False)
@@ -83,7 +87,7 @@ def extract_energy_minimums(df, r_max=12):
 
 # ----------------------------------------------------------------------
 
-def extract_energy_comparison(df_data, df_model):
+def extract_energy_comparison(df_data, df_model, interpolate=True):
     """Align model and reference on the same grid and compare E, D, and r_e."""
     use_zeta = "zeta" in df_data.columns or "zeta" in df_model.columns
     if use_zeta and not ("zeta" in df_data.columns and "zeta" in df_model.columns):
@@ -113,8 +117,8 @@ def extract_energy_comparison(df_data, df_model):
     if len(sorted_data) != len(sorted_model):
         raise ValueError("Reference and model grids do not align one-to-one")
 
-    df_min_model = extract_energy_minimums(sorted_model, r_max=12)
-    df_min_data = extract_energy_minimums(sorted_data, r_max=12)
+    df_min_model = extract_energy_minimums(sorted_model, r_max=12, interpolate=interpolate)
+    df_min_data = extract_energy_minimums(sorted_data, r_max=12, interpolate=interpolate)
 
     key_cols = ["phi1", "phi2"]
     if use_zeta:
@@ -142,7 +146,7 @@ def extract_energy_comparison(df_data, df_model):
 
 # ----------------------------------------------------------------------
 
-def compute_near_equilibrium_energy_rmse(df_data, df_model, delta_r=1.0, r_max=12):
+def compute_near_equilibrium_energy_rmse(df_data, df_model, delta_r=1.0, r_max=12, interpolate=True):
     r"""Compute the energy RMSE near the reference equilibrium distance.
     Only points satisfying
     :math:`|r - r_{e,\mathrm{ref}}| \leq \Delta r`
@@ -167,7 +171,7 @@ def compute_near_equilibrium_energy_rmse(df_data, df_model, delta_r=1.0, r_max=1
         orientation_cols.append("zeta")
 
     # Find the reference equilibrium distance for each orientation
-    df_min_data = extract_energy_minimums(df_data, r_max=r_max)
+    df_min_data = extract_energy_minimums(df_data, r_max=r_max, interpolate=interpolate)
 
     re_reference = (df_min_data[orientation_cols + ["r"]].rename(columns={"r": "re_ref"}))
 

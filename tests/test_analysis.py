@@ -80,8 +80,13 @@ def test_extract_energy_minimums_respects_r_max():
             dict(phi1=0, phi2=0, chi=0, psi=0, r=15, e=-0.5),
         ]
     )
-    out = extract_energy_minimums(df, r_max=12)
+    out = extract_energy_minimums(df, r_max=12, interpolate=True)
     assert list(out["r"]) == [9]
+
+    out = extract_energy_minimums(df, r_max=12, interpolate=False)
+
+    assert set(out["r"]) == {9}
+    assert set(out["e"]) == {-1.0}
 
 
 def test_compute_energy_errors_zero_for_identical_inputs():

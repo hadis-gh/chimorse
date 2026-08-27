@@ -123,14 +123,14 @@ def fit_Er_1D_lmfit(df, phi_vals, pot_model, init_params, fit_mode):
 
 # ----------------------------------------------------------------------
 
-def fit_alpha_morse(df, phi_vals, screw_dir, alpha_init=1.2, smooth_factor=None):
+def fit_alpha_morse(df, phi_vals, screw_dir, alpha_init=1.2, smooth_factor=None, interpolate=True):
     """Fit the Morse alpha at fixed (phi1, phi2) with D and r_e fixed to the data minimum; 
        return a one-row DataFrame with chi, psi, D, re, alpha."""
     phi1, phi2 = phi_vals
     mask = (df['phi1'] == phi1) & (df['phi2'] == phi2)
     Er = df[mask].copy()
 
-    minimum = extract_energy_minimums(Er).iloc[0]
+    minimum = extract_energy_minimums(Er, interpolate=interpolate).iloc[0]
     D = -minimum["e"]
     re = minimum["r"]
     
@@ -153,11 +153,11 @@ def fit_alpha_morse(df, phi_vals, screw_dir, alpha_init=1.2, smooth_factor=None)
 
 # ----------------------------------------------------------------------
 
-def fit_alpha_values(df, interaction):
+def fit_alpha_values(df, interaction, interpolate=True):
     """Fit alpha values in the same angular order as the energy minima."""
     screw_dir = get_screw_dir(interaction)
 
-    E_min_df = extract_energy_minimums(df, r_max=12)
+    E_min_df = extract_energy_minimums(df, r_max=12, interpolate=interpolate)
 
     results = [
         fit_alpha_morse(
@@ -211,14 +211,14 @@ def _parse_prune_arg(arg, keys=('D', 're', 'alpha')):
 # ----------------------------------------------------------------------
 
 def generate_fourier_morse_data(df, molecule, interaction, harmonic_ceils,
-                                alpha_fit=False,
+                                alpha_fit=False, interpolate=True,
                                 print_errors=True, near_eq_delta_r=.5,
                                 prune_model=False, prune_thresholds=None, prune_top_n=None):
     """Fit (and optionally prune) Fourier coefficients for D, r_e, and alpha, 
        then evaluate the resulting anisotropic Morse model."""
     print_modeling_information(molecule, interaction, harmonic_ceils)
 
-    E_min_df = extract_energy_minimums(df, r_max=12)
+    E_min_df = extract_energy_minimums(df, r_max=12, interpolate=interpolate)
     D, re = -E_min_df['e'], E_min_df['r']
     chi_rad, psi_rad = np.deg2rad(E_min_df['chi']), np.deg2rad(E_min_df['psi'])
     h_chi, h_psi = harmonic_ceils[interaction]
@@ -234,7 +234,7 @@ def generate_fourier_morse_data(df, molecule, interaction, harmonic_ceils,
     alpha_coeff = None
 
     if alpha_fit:
-        alpha_vals = fit_alpha_values(df, interaction)
+        alpha_vals = fit_alpha_values(df, interaction, interpolate=interpolate)
         alpha_coeff, *_ = np.linalg.lstsq(A, alpha_vals, rcond=None)
 
     if prune_model:
