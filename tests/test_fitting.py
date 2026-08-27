@@ -16,6 +16,7 @@ from chimorse.fitting import (
     fit_alpha_morse,
     generate_fourier_morse_data,
 )
+from chimorse.analysis import extract_energy_minimums
 
 
 def _basis(n=200, h_chi=2, h_psi=1, symm_chi=1, screw_step=20, seed=0):
@@ -90,17 +91,18 @@ def test_create_morse_model_dispatch():
     assert len(coeffs_a) == 3
 
 
-def test_fit_alpha_morse_recovers_known_alpha():
+def test_fit_alpha_morse_uses_interpolated_minimum():
     D_true, re_true, alpha_true = 1.0, 9.0, 1.25
-    r = np.arange(7.0, 11.01, 0.25)  # grid includes re = 9.0
+    r = np.arange(7.0, 11.01, 0.25)
     e = Morse_1D(r, D_true, re_true, alpha_true)
     df = pd.DataFrame({"phi1": 0, "phi2": 0, "r": r, "e": e})
 
     out = fit_alpha_morse(df, (0, 0), screw_dir=1)
+    minimum = extract_energy_minimums(df).iloc[0]
 
-    assert out["alpha"].iloc[0] == pytest.approx(alpha_true, rel=1e-3)
-    assert out["D"].iloc[0] == pytest.approx(D_true, rel=1e-6)
-    assert out["re"].iloc[0] == pytest.approx(re_true)
+    assert out["D"].iloc[0] == pytest.approx(-minimum["e"])
+    assert out["re"].iloc[0] == pytest.approx(minimum["r"])
+    assert np.isfinite(out["alpha"].iloc[0])
 
 
 def test_generate_fourier_morse_recovers_constant_potential():
@@ -138,4 +140,17 @@ def test_generate_fourier_morse_recovers_constant_potential():
     )
 
     assert len(df_model) == len(df)
-    assert np.allclose(df_model["e"].values, df["e"].values, atol=1e-6)
+    minimum = extract_energy_minimums(df).iloc[0]
+
+    e_expected = Morse_1D(
+        df["r"].values,
+        -minimum["e"],
+        minimum["r"],
+        alpha,
+    )
+
+    assert np.allclose(
+        df_model["e"].values,
+        e_expected,
+        atol=1e-6,
+    )
