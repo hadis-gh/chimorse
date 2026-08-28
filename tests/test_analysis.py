@@ -104,3 +104,6 @@ def test_compute_energy_errors_zero_for_identical_inputs():
     assert errors["E_rmse"] == pytest.approx(0.0, abs=1e-12)
     assert errors["D_rmse"] == pytest.approx(0.0, abs=1e-12)
     assert errors["re_rmse"] == pytest.approx(0.0, abs=1e-12)
+    assert errors["E_rmse_2kBT"] == pytest.approx(0.0)
+    assert errors["E_rmse_4kBT"] == pytest.approx(0.0)
+    assert errors["E_rmse_relevant"] == pytest.approx(0.0)
