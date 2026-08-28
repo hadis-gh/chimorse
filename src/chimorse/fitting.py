@@ -194,14 +194,15 @@ def poisson_weights(r, re, lam=None, e=None, e_min=None):
 def energy_weights(r, e, re=None, e_min=None, eps=1e-4, lam=1 / 2):
     """Energy-tied weight distribution.
 
-    weight(r) = max(|e_min| - (e - e_re), eps) ** lam
+    ``weight(r) = max(|e_min| - (e - e_re), eps) ** lam``
 
     e_min is the global minimum energy of the data (most negative value), e the
     energy at radial distance r, and e_re the energy at the equilibrium distance
     (the per-orientation minimum). The exponent lam defaults to 1/2, recovering
     the historical square-root weight
     ``sqrt(max(|e_min| - (e - e_re), eps))``; setting lam = 1/4 yields the
-    fourth root. |e_min| provides the scale. The weight grows as the energy
+    fourth root. The magnitude ``abs(e_min)`` provides the scale. The weight
+    grows as the energy
     drops toward the orientation minimum and is suppressed on the steep
     repulsive side (where e rises), hence it is directly tied to the energy
     values. Points whose base falls below the floor are floored at eps.

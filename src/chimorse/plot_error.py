@@ -265,7 +265,7 @@ def plot_shifted_rel_error(df_ref, df_model, out, csv_out=None,
 
     The reference energy E is the energy above the equilibrium minimum,
     E = e_ref - e_min = E - E(r_e). Per-point relative error is
-    |delta_e| / max(E, e_floor), i.e. delta_e/E for E >= e_floor and
+    ``|delta_e| / max(E, e_floor)``, i.e. delta_e/E for E >= e_floor and
     delta_e/e_floor for E < e_floor (e_floor = 25 meV ~ room-temperature).
     Shown as mean and max over orientations per fine-grid bin.
 
