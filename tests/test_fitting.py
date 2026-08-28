@@ -119,7 +119,7 @@ def test_fit_alpha_morse_weights_change_result():
     df = pd.DataFrame({"phi1": 0, "phi2": 0, "r": r, "e": e})
 
     out_equal = fit_alpha_morse(df, (0, 0), screw_dir=1)
-    gauss = lambda rr, re=None, e=None, e_min=None: gaussian_weights(rr, re, sigma=0.5)
+    gauss = lambda rr, re=None, e=None, e_min=None: gaussian_weights(rr, re, sigma=0.3)
     out_weighted = fit_alpha_morse(df, (0, 0), screw_dir=1, weight_func=gauss)
 
     assert out_weighted["alpha"].iloc[0] != pytest.approx(out_equal["alpha"].iloc[0], rel=1e-2)
