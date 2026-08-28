@@ -165,6 +165,7 @@ def fit_alpha_values(df, interaction, interpolate=True):
             (row.phi1, row.phi2),
             screw_dir,
             smooth_factor=None,
+            interpolate=interpolate,
         )
         for row in E_min_df.itertuples(index=False)
     ]
