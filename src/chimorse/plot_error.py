@@ -1,4 +1,10 @@
-"""Plot OA potential E(r) statistics and the Fourier-Morse fit error vs distance."""
+"""Plot potential E(r) statistics and the Fourier-Morse fit error vs distance.
+
+Supports any molecule/interaction/configuration via the CLI; all parameters
+(interaction, harmonic ceilings, alpha fit, interpolation, energy range,
+coarse/fine r spacing, weighting, and input paths) are set through command-line
+arguments with sensible defaults.
+"""
 import argparse
 import os
 
@@ -17,15 +23,6 @@ from chimorse.dataio import load_data
 from chimorse.fitting import generate_fourier_morse_data
 
 plt.rcParams.update(PLOT_PARAMS)
-
-ENERGY_RANGE = (8.3, 10.3)
-COARSE_R = 0.1       # coarse r-sampling spacing (Å)
-FINE_R = 0.0125      # fine r-sampling spacing near the minimum (Å)
-
-MOLECULE = "PA"
-INTERACTION = "OA"
-HARMONIC_CEILS = {"EP": (8, 1), "EA": (8, 1), "OP": (20, 1), "OA": (20, 1)}
-ALPHA_FIT = True
 
 
 def _tagged(out_dir, base, ext, tag):
@@ -83,7 +80,7 @@ def make_plot(df_ref, df_model, title_suffix, out, stats_file=None):
     ax1.plot(r, e_mean, color="tab:green", ls="-", lw=1.6, label=r"$\langle E(r)\rangle_{\phi_1,\phi_2}$")
     ax1.axhline(0, color="k", ls=":", lw=0.8)
     ax1.set_ylabel("E (eV)")
-    ax1.set_title(f"OA interaction — {MOLECULE}: E(r) statistics vs. distance{title_suffix}")
+    ax1.set_title(f"{INTERACTION} interaction — {MOLECULE}: E(r) statistics vs. distance{title_suffix}")
     ax1.legend(loc="upper right", ncol=3)
 
     # ---- panel 2: fit error ----
@@ -232,7 +229,7 @@ def plot_shifted_error(df_ref, df_model, out, csv_out=None):
     ax.axvline(0, color="k", ls="--", lw=0.8)
     ax.set_xlabel("shifted distance $r - r_e$ (Å)")
     ax.set_ylabel("ΔE (meV)")
-    ax.set_title(f"OA {MOLECULE}: MAE/RMSE vs. distance from equilibrium (E < 0)")
+    ax.set_title(f"{INTERACTION} {MOLECULE}: MAE/RMSE vs. distance from equilibrium (E < 0)")
 
     # minor y-grid at 5 meV, major y-grid at 50 meV
     ax.yaxis.set_minor_locator(MultipleLocator(5))
@@ -351,7 +348,7 @@ def plot_shifted_rel_error(df_ref, df_model, out, csv_out=None,
     axr2 = ax2.twinx()
 
     render_panel(ax1, axr1,
-                 title=f"OA {MOLECULE}: relative error vs. distance from equilibrium (E < 0)")
+                 title=f"{INTERACTION} {MOLECULE}: relative error vs. distance from equilibrium (E < 0)")
 
     # zoom panel: relative errors below 0.5 (left) and energies up to 200 meV (right)
     render_panel(ax2, axr2, rel_ymax=0.5, e_ymax=0.2,
@@ -384,7 +381,7 @@ def plot_shifted_rel_error(df_ref, df_model, out, csv_out=None,
                   "o-", color="tab:green", lw=1.6)
         axr2.set_xlabel("upper energy bound $E$ (meV)")
         axr2.set_ylabel("mean relative error (ratio)")
-        axr2.set_title("OA: mean rel. error vs. energy window; "
+        axr2.set_title(f"{INTERACTION}: mean rel. error vs. energy window; "
                        r"$|\Delta E|/\max(E{-}E(r_e),25\,\mathrm{meV})$")
         fgr.tight_layout()
         os.makedirs(os.path.dirname(out), exist_ok=True)
@@ -421,7 +418,7 @@ def plot_waterfall(df_ref, df_model, out, n_curves=None):
         ax.plot(s, e + k * offset, color=cmap(k / vmax), lw=0.5)
     ax.set_xlabel("shifted distance $r - r_e$ (Å)")
     ax.set_ylabel("E + offset (eV)")
-    ax.set_title(f"OA {MOLECULE}: waterfall of aligned E(r), E < 0 ({n} orientations)")
+    ax.set_title(f"{INTERACTION} {MOLECULE}: waterfall of aligned E(r), E < 0 ({n} orientations)")
     fig.tight_layout()
     os.makedirs(os.path.dirname(out), exist_ok=True)
     fig.savefig(out)
@@ -506,7 +503,7 @@ def plot_selected_series(df_ref, df_model, out, csv_out, log_out, e_floor=25e-3)
     ax.axhline(0, color="k", ls=":", lw=0.8)
     ax.set_xlabel("r (Å)")
     ax.set_ylabel("E (eV)")
-    ax.set_title("OA: selected orientations — fit (lines) vs data (points)")
+    ax.set_title(f"{INTERACTION}: selected orientations — fit (lines) vs data (points)")
     ax.legend(loc="best", fontsize=7)
     fig.tight_layout()
     os.makedirs(os.path.dirname(out) or ".", exist_ok=True)
@@ -573,22 +570,97 @@ def plot_top_rmse(df_ref, df_model, out_shifted, out_abs,
     render("r", "distance $r$ (Å)", show_fit=True)
 
 
+def _parse_range(text):
+    """Parse a comma-separated pair of floats into an (r_min, r_max) tuple."""
+    parts = [p.strip() for p in text.split(",")]
+    if len(parts) != 2:
+        raise argparse.ArgumentTypeError(f"expected 'a,b', got {text!r}")
+    try:
+        return (float(parts[0]), float(parts[1]))
+    except ValueError:
+        raise argparse.ArgumentTypeError(f"invalid range {text!r}")
+
+
+def _parse_harmonics(text):
+    """Parse a 'EP:8,1;EA:8,1;OP:20,1;OA:20,1' string into a
+    {interaction: (h_chi, h_psi)} dict (entries separated by ';')."""
+    mapping = {}
+    for token in text.split(";"):
+        token = token.strip()
+        if not token:
+            continue
+        inter, _, h = token.partition(":")
+        if ":" not in token or not h:
+            raise argparse.ArgumentTypeError(f"invalid harmonic entry {token!r}")
+        chi, _, psi = h.partition(",")
+        mapping[inter.strip().upper()] = (int(chi), int(psi))
+    return mapping
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(
-        description="Plot OA potential E(r) statistics and Fourier-Morse fit error."
+        description="Plot potential E(r) statistics and the Fourier-Morse fit "
+                    "error vs distance for any interaction/configuration."
     )
+    parser.add_argument("--molecule", default="PA",
+                        help="molecule name (default: PA)")
+    parser.add_argument("--interaction", default="OA",
+                        help="interaction type, e.g. OA/OP/EA/EP (default: OA)")
+    parser.add_argument("--alpha-fit", dest="alpha_fit", action="store_true",
+                        default=True,
+                        help="fit per-orientation alpha via Fourier expansion "
+                             "(default: on)")
+    parser.add_argument("--no-alpha-fit", dest="alpha_fit", action="store_false",
+                        help="use a fixed alpha (disables alpha fit)")
+    parser.add_argument("--interpolate", dest="interpolate", action="store_true",
+                        default=True,
+                        help="off-grid harmonic interpolation of r_e (default: on)")
+    parser.add_argument("--no-interpolate", dest="interpolate", action="store_false",
+                        help="use discrete energy minimum for r_e")
+    parser.add_argument(
+        "--harmonics", type=_parse_harmonics,
+        default="EP:8,1;EA:8,1;OP:20,1;OA:20,1",
+        help="harmonic ceilings as 'EP:8,1;EA:8,1;OP:20,1;OA:20,1' "
+             "(default: EP/EA 8,1; OP/OA 20,1)",
+    )
+    parser.add_argument("--energy-range", default="8.3,10.3", type=_parse_range,
+                        help="restricted r range for stats, e.g. '8.3,10.3'")
+    parser.add_argument("--coarse-r", default=0.1, type=float,
+                        help="coarse r-sampling spacing in A (default: 0.1)")
+    parser.add_argument("--fine-r", default=0.0125, type=float,
+                        help="fine r-sampling spacing near minimum in A (default: 0.0125)")
     parser.add_argument("--fit-input", default=None,
                         help="CSV of a precomputed potential fit (df_model). "
                              "If omitted, a fit is computed inline with equal weights.")
     parser.add_argument("--data-file", default=None,
                         help="CSV of the reference data frame (df_ref). "
-                             "If omitted, the default OA reference data is loaded.")
+                             "If omitted, the default reference data for the "
+                             "selected molecule/interaction is loaded.")
     parser.add_argument("--output-dir", default="Figures",
                         help="output directory (default: Figures)")
     parser.add_argument("--tag", default=None,
                         help="suffix appended to every output filename, e.g. "
                              "w_poisson_lam0.5 (default: w_equal when fitting inline)")
+    parser.add_argument("--weight-func", default=None,
+                        help="inline-fit alpha weighting, e.g. 'equal', "
+                             "'poisson', 'gaussian', 'energy' (default: equal)")
+    parser.add_argument("--weight-lam", default=None, type=float,
+                        help="parameter for the inline weight function "
+                             "(e.g. poisson lambda / gaussian sigma / energy exponent)")
+    parser.add_argument("--weight-eps", default=1e-4, type=float,
+                        help="floor for the energy weight (default: 1e-4)")
     args = parser.parse_args(argv)
+
+    # ---- set module-level configuration used by the plotting functions ----
+    global MOLECULE, INTERACTION, HARMONIC_CEILS, ALPHA_FIT
+    global ENERGY_RANGE, COARSE_R, FINE_R
+    MOLECULE = args.molecule
+    INTERACTION = args.interaction
+    HARMONIC_CEILS = args.harmonics
+    ALPHA_FIT = args.alpha_fit
+    ENERGY_RANGE = args.energy_range
+    COARSE_R = args.coarse_r
+    FINE_R = args.fine_r
 
     out_dir = args.output_dir
     os.makedirs(out_dir, exist_ok=True)
@@ -600,14 +672,24 @@ def main(argv=None):
         df_model = pd.read_csv(args.fit_input)
         tag = args.tag if args.tag is not None else ""
     else:
+        fit_kwargs = dict(alpha_fit=ALPHA_FIT, interpolate=args.interpolate,
+                          print_errors=False)
+        if args.weight_func:
+            from chimorse.fitting import make_weight_func
+            fit_kwargs["weight_func"] = make_weight_func(
+                args.weight_func, lam=args.weight_lam, eps=args.weight_eps
+            )
         df_model = generate_fourier_morse_data(
-            df_ref, molecule, INTERACTION, HARMONIC_CEILS,
-            alpha_fit=ALPHA_FIT, print_errors=False,
+            df_ref, molecule, INTERACTION, HARMONIC_CEILS, **fit_kwargs
         )
         tag = args.tag if args.tag is not None else "w_equal"
 
+    # prefix every output with the interaction so different interactions do not collide
+    pfx = INTERACTION.lower()
+    _P = lambda base, ext: _tagged(out_dir, f"{pfx}_{base}", ext, tag)
+
     # ---------- statistics / bound-region ----------
-    make_plot(df_ref, df_model, "", _tagged(out_dir, "oa_E_statistics_and_error", ".pdf", tag))
+    make_plot(df_ref, df_model, "", _P("E_statistics_and_error", ".pdf"))
 
     mask = df_ref["e"] <= 0
     df_ref_bound = df_ref[mask]
@@ -617,36 +699,36 @@ def main(argv=None):
     ].reset_index(drop=True)
     make_plot(
         df_ref_bound, df_model_bound, " (E ≤ 0 only)",
-        _tagged(out_dir, "oa_E_statistics_and_error_bound", ".pdf", tag),
-        stats_file=_tagged(out_dir, "oa_fit_error_stats", ".txt", tag),
+        _P("E_statistics_and_error_bound", ".pdf"),
+        stats_file=_P("fit_error_stats", ".txt"),
     )
 
     # ---------- shifted / relative error / waterfall / selected series ----------
     plot_shifted_error(
         df_ref, df_model,
-        _tagged(out_dir, "oa_shifted_error", ".pdf", tag),
-        csv_out=_tagged(out_dir, "oa_shifted_error_data", ".csv", tag),
+        _P("shifted_error", ".pdf"),
+        csv_out=_P("shifted_error_data", ".csv"),
     )
-    plot_waterfall(df_ref, df_model, _tagged(out_dir, "oa_waterfall", ".pdf", tag))
+    plot_waterfall(df_ref, df_model, _P("waterfall", ".pdf"))
     plot_shifted_rel_error(
         df_ref, df_model,
-        _tagged(out_dir, "oa_shifted_rel_error", ".pdf", tag),
-        csv_out=_tagged(out_dir, "oa_shifted_rel_error_data", ".csv", tag),
-        ranges_csv_out=_tagged(out_dir, "oa_rel_error_ranges", ".csv", tag),
-        ranges_out=_tagged(out_dir, "oa_rel_error_ranges", ".pdf", tag),
+        _P("shifted_rel_error", ".pdf"),
+        csv_out=_P("shifted_rel_error_data", ".csv"),
+        ranges_csv_out=_P("rel_error_ranges", ".csv"),
+        ranges_out=_P("rel_error_ranges", ".pdf"),
     )
     plot_selected_series(
         df_ref, df_model,
-        _tagged(out_dir, "oa_selected_series", ".pdf", tag),
-        _tagged(out_dir, "oa_selected_series_data", ".csv", tag),
-        _tagged(out_dir, "oa_selected_series_log", ".txt", tag),
+        _P("selected_series", ".pdf"),
+        _P("selected_series_data", ".csv"),
+        _P("selected_series_log", ".txt"),
     )
 
     # ---------- top-RMSE orientations ----------
     plot_top_rmse(
         df_ref, df_model,
-        _tagged(out_dir, "oa_top_rmse_shifted", ".pdf", tag),
-        _tagged(out_dir, "oa_top_rmse_abs", ".pdf", tag),
+        _P("top_rmse_shifted", ".pdf"),
+        _P("top_rmse_abs", ".pdf"),
     )
 
 
