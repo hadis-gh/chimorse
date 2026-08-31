@@ -15,6 +15,11 @@ from chimorse.fitting import (
     create_morse_model,
     fit_alpha_morse,
     generate_fourier_morse_data,
+    equal_weights,
+    gaussian_weights,
+    poisson_weights,
+    energy_weights,
+    make_weight_func,
 )
 from chimorse.analysis import extract_energy_minimums
 
@@ -103,6 +108,99 @@ def test_fit_alpha_morse_uses_interpolated_minimum():
     assert out["D"].iloc[0] == pytest.approx(-minimum["e"])
     assert out["re"].iloc[0] == pytest.approx(minimum["r"])
     assert np.isfinite(out["alpha"].iloc[0])
+
+
+def test_fit_alpha_morse_weights_change_result():
+    """Different weight functions must yield different fitted alpha values, proving the
+    weight_func callable is actually applied during the fit."""
+    D_true, re_true, alpha_true = 1.0, 9.0, 1.25
+    r = np.arange(7.0, 11.01, 0.25)  # grid includes re = 9.0
+    e = Morse_1D(r, D_true, re_true, alpha_true)
+    df = pd.DataFrame({"phi1": 0, "phi2": 0, "r": r, "e": e})
+
+    out_equal = fit_alpha_morse(df, (0, 0), screw_dir=1)
+    gauss = lambda rr, re=None, e=None, e_min=None: gaussian_weights(rr, re, sigma=0.3)
+    out_weighted = fit_alpha_morse(df, (0, 0), screw_dir=1, weight_func=gauss)
+
+    assert out_weighted["alpha"].iloc[0] != pytest.approx(out_equal["alpha"].iloc[0], rel=1e-2)
+
+
+def test_equal_weights_are_constant_one():
+    r = np.linspace(6.8, 11.5, 50)
+    assert np.allclose(equal_weights(r), 1.0)
+
+
+def test_gaussian_weights_peak_at_re():
+    re = 9.125
+    w_re = gaussian_weights(np.array([re]), re, sigma=0.7)
+    assert w_re.max() == pytest.approx(1.0, abs=1e-6)
+    # On a discrete grid the maximum is at the point nearest r_e.
+    r = np.linspace(6.8, 11.5, 200)
+    w = gaussian_weights(r, re, sigma=0.7)
+    assert w.max() == pytest.approx(1.0, rel=1e-2)
+    assert abs(r[np.argmax(w)] - re) < 0.05
+    with pytest.raises(ValueError):
+        gaussian_weights(r, re, sigma=0.0)
+
+
+def test_poisson_weights_mode_at_re():
+    r = np.linspace(6.8, 11.5, 300)
+    re = 9.125
+    for lam in (3.0, re, 15.0):
+        w = poisson_weights(r, re, lam=lam)
+        assert r[np.argmax(w)] == pytest.approx(re, abs=1e-2)
+        assert w.max() == pytest.approx(1.0, abs=1e-6)
+        assert np.isfinite(w).all()
+        assert w.min() >= 0.0
+
+
+def test_energy_weights_peak_at_minimum_and_floor_eps():
+    r = np.linspace(7.0, 11.0, 200)
+    re = 9.0
+    # well-shaped binding energy: deep at re, rising (repulsive) below, ~0 tail above
+    e = -1.5 * np.exp(-1.1 * (r - re) ** 2) + 3.0 * np.exp(-2.5 * (r - re)) * (np.exp(-2.5 * (r - re)) - 2)
+    e_min = e.min()
+
+    w = energy_weights(r, e, re=re, e_min=e_min)
+    assert np.isfinite(w).all()
+    assert (w >= 0.0).all()
+    # deepest (most negative) energy region gets the largest weight
+    imin = np.argmin(e)
+    assert w[imin] == pytest.approx(w.max(), rel=1e-3)
+    # repulsive (high-energy) points are suppressed to the sqrt(eps) floor
+    irep = np.argmax(e)
+    assert w[irep] == pytest.approx(np.sqrt(1e-4), rel=1e-3)
+    # a negative eps is rejected
+    with pytest.raises(ValueError):
+        energy_weights(r, e, re=re, e_min=e_min, eps=-1.0)
+
+
+def test_make_weight_func_dispatch():
+    r = np.linspace(6.8, 11.5, 50)
+    assert np.allclose(make_weight_func("equal")(r), 1.0)
+    assert make_weight_func("gaussian", sigma=0.7)(np.array([9.0]), 9.0) == pytest.approx(1.0)
+    assert make_weight_func("poisson", lam=5.0)(np.array([9.0]), 9.0) == pytest.approx(1.0, abs=1e-3)
+    # energy weights tie to the energy values and use the configured eps
+    re = 9.0
+    e = -1.5 * np.exp(-1.0 * (r - re) ** 2)
+    w = make_weight_func("energy", eps=1e-6)(r, re, e=e, e_min=e.min())
+    assert np.isfinite(w).all()
+    with pytest.raises(ValueError):
+        make_weight_func("bogus")
+
+
+def test_fit_alpha_morse_default_matches_equal_weights():
+    """The default weight_func gives the same result as an explicit constant-1 weight."""
+    D_true, re_true, alpha_true = 1.0, 9.0, 1.25
+    r = np.arange(7.0, 11.01, 0.25)
+    e = Morse_1D(r, D_true, re_true, alpha_true)
+    df = pd.DataFrame({"phi1": 0, "phi2": 0, "r": r, "e": e})
+
+    out_default = fit_alpha_morse(df, (0, 0), screw_dir=1)
+    out_const = fit_alpha_morse(df, (0, 0), screw_dir=1,
+                                weight_func=equal_weights)
+
+    assert out_default["alpha"].iloc[0] == pytest.approx(out_const["alpha"].iloc[0], rel=1e-9)
 
 
 def test_generate_fourier_morse_recovers_constant_potential():

@@ -9,7 +9,8 @@ import numpy as np
 import pandas as pd
 from itertools import product
 from lmfit import Model
-from scipy.optimize import curve_fit
+from scipy.optimize import curve_fit, brentq
+from scipy.special import digamma, gammaln
 
 from .analysis import extract_energy_minimums, get_symm_chi, get_screw_dir, compute_energy_errors
 from .fourier import create_matrix_lsqt_2d, count_fourier_coeffs
@@ -123,9 +124,150 @@ def fit_Er_1D_lmfit(df, phi_vals, pot_model, init_params, fit_mode):
 
 # ----------------------------------------------------------------------
 
-def fit_alpha_morse(df, phi_vals, screw_dir, alpha_init=1.2, smooth_factor=None, interpolate=True):
+def equal_weights(r, re=None, e=None, e_min=None):
+    """Constant unit weights — every data point contributes equally.
+
+    The re, e, and e_min arguments are accepted for signature compatibility
+    with the other weight distributions but are unused.
+    """
+    return np.ones_like(r, dtype=float)
+
+
+def gaussian_weights(r, re, sigma=1.0, e=None, e_min=None):
+    """Gaussian weight distribution centered at the equilibrium distance r_e.
+
+    Matches the historical weighting used for the alpha fit: points close to
+    r_e are weighted most strongly, with a symmetric fall-off governed by sigma.
+    The e and e_min arguments are accepted for signature compatibility.
+    """
+    sigma = float(sigma)
+    if sigma <= 0:
+        raise ValueError("sigma must be positive")
+    return np.sqrt(np.exp(-0.5 * ((r - re) / sigma) ** 2))
+
+
+def _continuous_poisson_logw(x, lam):
+    """Log of the continuous (Gamma) Poisson mass function, safe for x > -1."""
+    return x * np.log(lam) - lam - gammaln(x + 1.0)
+
+
+def _continuous_poisson_mode(lam):
+    """Continuous mode of the Gamma-Poisson mass function (root of digamma)."""
+    if lam < 1.0:
+        return 0.0
+    target = np.log(lam)
+    hi = max(lam, 1.0)
+    while digamma(hi + 1.0) < target:
+        hi *= 2.0
+    return brentq(lambda x: digamma(x + 1.0) - target, 0.0, hi)
+
+
+def poisson_weights(r, re, lam=None, e=None, e_min=None):
+    """Poisson weight distribution whose maximum sits at the equilibrium distance r_e.
+
+    The Poisson shape is right-skewed (longer tail toward large r) and falls off
+    steeply below r_e, so it suppresses residuals from the steep repulsive side of
+    the potential without over-damping the large-r tail. ``lam`` sets the Poisson
+    parameter (spread/skew); it defaults to r_e, which keeps the mode at r_e.
+    The e and e_min arguments are accepted for signature compatibility.
+    """
+    lam = float(re) if lam is None else float(lam)
+    re = float(re)
+    if lam <= 0 or re <= 0:
+        raise ValueError("lam and re must be positive")
+
+    mode = _continuous_poisson_mode(lam)
+    # Shift the distribution so its mode maps exactly to r = re.
+    x = (r - re) + mode
+    x = np.asarray(x, dtype=float)
+
+    logw = np.full_like(x, -np.inf)
+    valid = x > -1.0
+    logw[valid] = _continuous_poisson_logw(x[valid], lam)
+    logw_mode = _continuous_poisson_logw(mode, lam)
+
+    w = np.exp(logw - logw_mode)
+    w = np.nan_to_num(w, nan=0.0, posinf=0.0, neginf=0.0)
+    return w
+
+
+def energy_weights(r, e, re=None, e_min=None, eps=1e-4, lam=1 / 2):
+    """Energy-tied weight distribution.
+
+    ``weight(r) = max(|e_min| - (e - e_re), eps) ** lam``
+
+    e_min is the global minimum energy of the data (most negative value), e the
+    energy at radial distance r, and e_re the energy at the equilibrium distance
+    (the per-orientation minimum). The exponent lam defaults to 1/2, recovering
+    the historical square-root weight
+    ``sqrt(max(|e_min| - (e - e_re), eps))``; setting lam = 1/4 yields the
+    fourth root. The magnitude ``abs(e_min)`` provides the scale. The weight
+    grows as the energy
+    drops toward the orientation minimum and is suppressed on the steep
+    repulsive side (where e rises), hence it is directly tied to the energy
+    values. Points whose base falls below the floor are floored at eps.
+    """
+    r = np.asarray(r, dtype=float)
+    e = np.asarray(e, dtype=float)
+
+    e_min = float(e_min) if e_min is not None else float(np.min(e))
+    eps = float(eps)
+    lam = float(lam)
+    if eps <= 0:
+        raise ValueError("eps must be positive")
+
+    if re is not None:
+        i_re = int(np.argmin(np.abs(r - re)))
+        e_re = float(e[i_re])
+    else:
+        e_re = float(np.min(e))
+
+    # Base |e_min| - (e - e_re), floored at eps before the (possibly
+    # fractional) power is applied.
+    arg = abs(e_min) - (e - e_re)
+    return np.maximum(arg, eps) ** lam
+
+
+def make_weight_func(name, sigma=1.0, lam=None, eps=1e-4):
+    """Return a weight callable ``w(r, re, e, e_min)`` for a named distribution.
+
+    name must be one of ``'equal'``, ``'gaussian'`` (center r_e, width sigma),
+    ``'poisson'`` (mode at r_e, parameter lam), or ``'energy'`` (tied to the
+    energy values, with floor eps). Each returned callable takes the radial
+    coordinates, the per-orientation equilibrium distance, the energy values,
+    and the global minimum energy, so the distributions can be centred at
+    r_e / tied to E(r) during the fit.
+    """
+    name = str(name).lower()
+    if name == "equal":
+        return lambda r, re=None, e=None, e_min=None: np.ones_like(r, dtype=float)
+    if name == "gaussian":
+        return lambda r, re=None, e=None, e_min=None: gaussian_weights(r, re, sigma=sigma)
+    if name == "poisson":
+        return lambda r, re=None, e=None, e_min=None: poisson_weights(r, re, lam=lam)
+    if name == "energy":
+        lam_e = 1 / 2 if lam is None else lam
+        return lambda r, re=None, e=None, e_min=None: energy_weights(
+            r, e, re=re, e_min=e_min, eps=eps, lam=lam_e
+        )
+    raise ValueError(
+        f"Unknown weight distribution {name!r}; expected one of "
+        "{'equal', 'gaussian', 'poisson', 'energy'}."
+    )
+
+# ----------------------------------------------------------------------
+
+def fit_alpha_morse(df, phi_vals, screw_dir, alpha_init=1.2, smooth_factor=None,
+                    interpolate=True, weight_func=equal_weights, e_min=None):
     """Fit the Morse alpha at fixed (phi1, phi2) with D and r_e fixed to the data minimum; 
-       return a one-row DataFrame with chi, psi, D, re, alpha."""
+       return a one-row DataFrame with chi, psi, D, re, alpha.
+
+    weight_func is a callable ``w(r, re, e, e_min)`` mapping the radial
+    coordinate array, the per-orientation equilibrium distance, the energy
+    values, and the global minimum energy to per-point fit weights; it defaults
+    to equal weighting (constant unit weights). If e_min is None it is taken as
+    the minimum energy of df.
+    """
     phi1, phi2 = phi_vals
     mask = (df['phi1'] == phi1) & (df['phi2'] == phi2)
     Er = df[mask].copy()
@@ -133,11 +275,18 @@ def fit_alpha_morse(df, phi_vals, screw_dir, alpha_init=1.2, smooth_factor=None,
     minimum = extract_energy_minimums(Er, interpolate=interpolate).iloc[0]
     D = -minimum["e"]
     re = minimum["r"]
-    
+
+    if e_min is None:
+        e_min = df['e'].min()
+
+    weights = weight_func(
+        Er['r'].to_numpy(), e=Er['e'].to_numpy(), re=re, e_min=e_min
+    )
+
     model = Model(Morse_1D)
     params = model.make_params(D=D, re=re, alpha=alpha_init)
     params['D'].vary = params['re'].vary = False
-    result = model.fit(Er['e'], params, r=Er['r'])
+    result = model.fit(Er['e'], params, r=Er['r'], weights=weights)
     alpha = result.params['alpha'].value
 
     fitted_data = pd.DataFrame([{
@@ -153,11 +302,19 @@ def fit_alpha_morse(df, phi_vals, screw_dir, alpha_init=1.2, smooth_factor=None,
 
 # ----------------------------------------------------------------------
 
-def fit_alpha_values(df, interaction, interpolate=True):
-    """Fit alpha values in the same angular order as the energy minima."""
+def fit_alpha_values(df, interaction, interpolate=True,
+                     weight_func=equal_weights, e_min=None):
+    """Fit alpha values in the same angular order as the energy minima.
+
+    weight_func (a callable ``w(r, re, e, e_min)``) is forwarded to
+    fit_alpha_morse for each orientation together with the global energy
+    minimum (computed from df if e_min is None).
+    """
     screw_dir = get_screw_dir(interaction)
 
     E_min_df = extract_energy_minimums(df, r_max=12, interpolate=interpolate)
+    if e_min is None:
+        e_min = df['e'].min()
 
     results = [
         fit_alpha_morse(
@@ -166,6 +323,8 @@ def fit_alpha_values(df, interaction, interpolate=True):
             screw_dir,
             smooth_factor=None,
             interpolate=interpolate,
+            weight_func=weight_func,
+            e_min=e_min,
         )
         for row in E_min_df.itertuples(index=False)
     ]
@@ -213,10 +372,15 @@ def _parse_prune_arg(arg, keys=('D', 're', 'alpha')):
 
 def generate_fourier_morse_data(df, molecule, interaction, harmonic_ceils,
                                 alpha_fit=False, interpolate=True,
+                                weight_func=equal_weights,
                                 print_errors=True, near_eq_delta_r=.5,
                                 prune_model=False, prune_thresholds=None, prune_top_n=None):
     """Fit (and optionally prune) Fourier coefficients for D, r_e, and alpha, 
-       then evaluate the resulting anisotropic Morse model."""
+       then evaluate the resulting anisotropic Morse model.
+
+    weight_func (a callable ``w(r, re, e, e_min)``) sets the per-point fit
+    weights for the per-orientation alpha fits (equal weights by default).
+    """
     print_modeling_information(molecule, interaction, harmonic_ceils)
 
     E_min_df = extract_energy_minimums(df, r_max=12, interpolate=interpolate)
@@ -235,7 +399,9 @@ def generate_fourier_morse_data(df, molecule, interaction, harmonic_ceils,
     alpha_coeff = None
 
     if alpha_fit:
-        alpha_vals = fit_alpha_values(df, interaction, interpolate=interpolate)
+        alpha_vals = fit_alpha_values(df, interaction, interpolate=interpolate,
+                                      weight_func=weight_func,
+                                      e_min=df['e'].min())
         alpha_coeff, *_ = np.linalg.lstsq(A, alpha_vals, rcond=None)
 
     if prune_model:
