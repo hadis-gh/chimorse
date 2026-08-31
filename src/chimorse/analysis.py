@@ -146,6 +146,134 @@ def extract_energy_comparison(df_data, df_model, interpolate=True):
 
 # ----------------------------------------------------------------------
 
+def _align_energy_data(df_data, df_model, r_max=12, interpolate=True):
+    """Align model/reference energies and attach the reference minimum."""
+    orientation_cols = ["phi1", "phi2"]
+
+    use_zeta = "zeta" in df_data.columns or "zeta" in df_model.columns
+    if use_zeta:
+        if not ("zeta" in df_data.columns and "zeta" in df_model.columns):
+            raise ValueError(
+                "df_data and df_model must either both contain zeta or both omit it"
+            )
+        orientation_cols.append("zeta")
+
+    grid_cols = orientation_cols + ["r"]
+
+    ref = (
+        df_data.loc[df_data["r"] <= r_max, grid_cols + ["e"]]
+        .rename(columns={"e": "e_ref"})
+    )
+
+    model = (
+        df_model.loc[df_model["r"] <= r_max, grid_cols + ["e"]]
+        .rename(columns={"e": "e_model"})
+    )
+
+    aligned = ref.merge(
+        model,
+        on=grid_cols,
+        how="inner",
+        validate="one_to_one",
+    )
+
+    if aligned.empty:
+        raise ValueError("Reference and model data have no matching grid points")
+
+    minima = extract_energy_minimums(
+        df_data,
+        r_max=r_max,
+        interpolate=interpolate,
+    )
+
+    minima = minima[
+        orientation_cols + ["r", "e"]
+    ].rename(
+        columns={
+            "r": "re_ref",
+            "e": "e_min_ref",
+        }
+    )
+
+    aligned = aligned.merge(
+        minima,
+        on=orientation_cols,
+        how="left",
+        validate="many_to_one",
+    )
+
+    aligned["delta_e_ref"] = (
+        aligned["e_ref"] - aligned["e_min_ref"]
+    )
+
+    return aligned
+
+# ----------------------------------------------------------------------
+
+def compute_energy_window_rmse(
+    df_data,
+    df_model,
+    delta_e_max=None,
+    e_max=None,
+    side=None,
+    r_max=12,
+    interpolate=True,
+):
+    """Compute energy RMSE inside a reference-defined energy region."""
+    aligned = _align_energy_data(
+        df_data,
+        df_model,
+        r_max=r_max,
+        interpolate=interpolate,
+    )
+
+    mask = np.ones(len(aligned), dtype=bool)
+
+    if delta_e_max is not None:
+        if delta_e_max <= 0:
+            raise ValueError("delta_e_max must be positive")
+
+        mask &= (
+            aligned["delta_e_ref"].to_numpy()
+            <= delta_e_max
+        )
+
+    if e_max is not None:
+        mask &= aligned["e_ref"].to_numpy() <= e_max
+
+    if side == "repulsive":
+        mask &= (
+            aligned["r"].to_numpy()
+            < aligned["re_ref"].to_numpy()
+        )
+
+    elif side == "attractive":
+        mask &= (
+            aligned["r"].to_numpy()
+            >= aligned["re_ref"].to_numpy()
+        )
+
+    elif side is not None:
+        raise ValueError(
+            "side must be None, 'repulsive', or 'attractive'"
+        )
+
+    window = aligned.loc[mask]
+
+    if window.empty:
+        raise ValueError(
+            "No data points found inside the requested energy window"
+        )
+
+    delta_e = (
+        window["e_model"].to_numpy()
+        - window["e_ref"].to_numpy()
+    )
+
+    return np.sqrt(np.mean(delta_e**2))
+
+# ----------------------------------------------------------------------
+
 def compute_near_equilibrium_energy_rmse(df_data, df_model, delta_r=1.0, r_max=12, interpolate=True):
     r"""Compute the energy RMSE near the reference equilibrium distance.
     Only points satisfying
@@ -222,17 +350,46 @@ def compute_near_equilibrium_energy_rmse(df_data, df_model, delta_r=1.0, r_max=1
 
 # ----------------------------------------------------------------------
 
-def compute_energy_errors(df_data, df_model, print_errors=True, near_eq_delta_r=1.0):
+def compute_energy_errors(df_data, df_model,
+                        print_errors=True,
+                        near_eq_delta_r=0.5,
+                        temperature=300.0,
+                        energy_cap=5.0,
+                        r_max=12
+    ):
     """ Compute RMSE and mean/max residuals for E, D, and r_e between
     model and reference. + RMSE using only points within ±near_eq_delta_r """
-    print('='*200)
+
     (E_data, E_model, D_model, D_data, re_model, re_data) = extract_energy_comparison(df_data, df_model)
 
     Delta_E = E_model - E_data
     Delta_D = D_model - D_data
     Delta_re = re_model - re_data
 
+    kBT = 8.617333262e-5 * temperature
+
     E_rmse_near_eq = compute_near_equilibrium_energy_rmse(df_data, df_model, delta_r=near_eq_delta_r)
+
+    E_rmse_2kBT = compute_energy_window_rmse(
+        df_data,
+        df_model,
+        delta_e_max=2 * kBT,
+        r_max=r_max,
+    )
+
+    E_rmse_4kBT = compute_energy_window_rmse(
+        df_data,
+        df_model,
+        delta_e_max=4 * kBT,
+        r_max=r_max,
+    )
+
+    E_rmse_relevant = compute_energy_window_rmse(
+        df_data,
+        df_model,
+        e_max=energy_cap,
+        r_max=r_max,
+    )
 
     errors = {
         # Well depth
@@ -245,34 +402,33 @@ def compute_energy_errors(df_data, df_model, print_errors=True, near_eq_delta_r=
         # "max_re_residuals": np.max(Delta_re),
         "re_rmse": np.sqrt(np.mean(Delta_re**2)),
 
+        "E_rmse_2kBT": E_rmse_2kBT,
+        "E_rmse_4kBT": E_rmse_4kBT,
+        "E_rmse_relevant": E_rmse_relevant,
+
+        # Energy near equilibrium
+        "E_rmse_near_eq": E_rmse_near_eq,
+
         # Full energy grid
         # "global_E_residuals": np.mean(Delta_E),
         # "max_E_residuals": np.max(Delta_E),
         "E_rmse": np.sqrt(np.mean(Delta_E**2)),
-
-        # Energy near equilibrium
-        "E_rmse_near_eq": E_rmse_near_eq,
     }
 
     if print_errors:
-        for key, value in errors.items():
+        print("*** Parameter RMSE ***")
+        print(f"D                        : {errors['D_rmse'] * 1000:.2f} meV")
+        print(f"r_e                      : {errors['re_rmse'] * 1000:.4f} mÅ")
+        print("*** Energy RMSE ***")
+        print(f"ΔE <= 2 kBT              : {errors['E_rmse_2kBT'] * 1000:.2f} meV")
+        print(f"ΔE <= 4 kBT              : {errors['E_rmse_4kBT'] * 1000:.2f} meV")
+        print(f"E <= E(r ± {near_eq_delta_r:g}) Å        : {errors['E_rmse_near_eq'] * 1000:.2f} meV")
+        print(f"E_ref <= {energy_cap:g} eV            : {errors['E_rmse_relevant'] * 1000:.2f} meV")
+        print(f"full grid                : {errors['E_rmse'] * 1000:.2f} meV")
 
-            if (
-                key.startswith("global_re")
-                or key.startswith("max_re")
-                or key.startswith("re_rmse")
-            ):
-                print(
-                    f"{key:25s}: "
-                    f"{value:.5e} Å"
-                )
+        print(f"\nkBT at {temperature:g} K = {kBT * 1000:.2f} meV")
 
-            else:
-                print(
-                    f"{key:25s}: "
-                    f"{value * 1000:.5e} meV"
-                )
-    print('='*200)
+    print('='*50)
     return errors
 
 # ----------------------------------------------------------------------

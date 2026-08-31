@@ -19,13 +19,15 @@ from .models import (Morse_1D, MorseAnisotropic, MorseAnisotropicAlpha,
 
 # ----------------------------------------------------------------------
 
-def print_modeling_information(molecule, interaction, harmonic_ceils):
+def print_modeling_information(molecule, interaction, harmonic_ceils, alpha_fit, prune_model):
     """Print molecule, interaction, harmonic orders, and the resulting Fourier coefficient counts."""
     h_chi, h_psi = harmonic_ceils[interaction]
     symm_chi = get_symm_chi(interaction)
     print(f"molecule                 : {molecule.name}")
     print(f"interaction              : {interaction}")
-    print(f"harmonics (χ, ψ)         : {harmonic_ceils[interaction]}")
+    print(f"alpha fitting            : {alpha_fit}")
+    print(f"prune model              : {prune_model}")
+    print(f"\nharmonics (χ, ψ)         : {harmonic_ceils[interaction]}")
     print(f"n_coeffs before symmetry : {count_fourier_coeffs(h_chi, h_psi, symm_chi, molecule.screw_step, after_symm=False)}")
     print(f"n_coeffs                 : {count_fourier_coeffs(h_chi, h_psi, symm_chi, molecule.screw_step, after_symm=True)}")
     print('-'*30)
@@ -376,12 +378,11 @@ def generate_fourier_morse_data(df, molecule, interaction, harmonic_ceils,
                                 print_errors=True, near_eq_delta_r=.5,
                                 prune_model=False, prune_thresholds=None, prune_top_n=None):
     """Fit (and optionally prune) Fourier coefficients for D, r_e, and alpha, 
-       then evaluate the resulting anisotropic Morse model.
-
+    error-metrics then evaluate the resulting anisotropic Morse model.
     weight_func (a callable ``w(r, re, e, e_min)``) sets the per-point fit
     weights for the per-orientation alpha fits (equal weights by default).
     """
-    print_modeling_information(molecule, interaction, harmonic_ceils)
+    print_modeling_information(molecule, interaction, harmonic_ceils, alpha_fit, prune_model)
 
     E_min_df = extract_energy_minimums(df, r_max=12, interpolate=interpolate)
     D, re = -E_min_df['e'], E_min_df['r']

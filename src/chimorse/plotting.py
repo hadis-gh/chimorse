@@ -1616,7 +1616,7 @@ def plot_prune_coefficients(df, molecule, interaction,
                              harmonic_ceils, relative_th, alpha_fit,
                              print_errors=False, colors=INTERACTION_CMAPS, save_path=None):
     """Compute D, r_e (and alpha if alpha_fit), build the Fourier design matrix, and call plot_rmse_pruning."""
-    print_modeling_information(molecule, interaction, harmonic_ceils)
+    print_modeling_information(molecule, interaction, harmonic_ceils, alpha_fit, prune_model=False)
 
     E_min_df = extract_energy_minimums(df, r_max=12)
     D, re = -E_min_df['e'], E_min_df['r']
