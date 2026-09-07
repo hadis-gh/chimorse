@@ -44,7 +44,7 @@ used to generate the reference energies.
 | Stage | Capability |
 |---|---|
 | **Input** | Load sampled radial interaction profiles over periodic orientations. |
-| **Radial model** | Extract local Morse parameters \(D\), \(r_e\), and optionally \(\alpha\). |
+| **Radial model** | Extract local Morse parameters $D$, $r_e$, and optionally $\alpha$. |
 | **Angular model** | Fit the parameter fields with two-dimensional Fourier expansions. |
 | **Physics constraints** | Restrict the basis using known periodicity and interchange symmetries. |
 | **Model selection** | Quantify convergence with harmonic resolution and prune weak coefficients. |
@@ -68,11 +68,11 @@ These labels are specific to the αPA demonstration; they are not required by
 the general fitting framework.
 
 For each interaction class, the reference landscape contains roughly
-**300,000 sampled energy values**. In the compact constant-\(\alpha\) model,
+**300,000 sampled energy values**. In the compact constant-$\alpha$ model,
 symmetry adaptation reduces the Fourier representation to 54–246 coefficients
 before pruning and 49–122 retained coefficients after pruning. The
 symmetry-adapted, unpruned compact models reproduce near-equilibrium energies
-with RMSE values of approximately **3.7–5.0 meV** within \(2k_\mathrm{B}T\) at
+with RMSE values of approximately **3.7–5.0 meV** within $2k_\mathrm{B}T$ at
 300 K.
 
 These numbers are application-specific rather than universal performance
@@ -81,12 +81,12 @@ ChiMorse is designed to quantify.
 
 ### Reference angular landscapes
 
-The figure below shows the sampled well-depth field \(D(\chi,\psi)\) for all
+The figure below shows the sampled well-depth field $D(\chi,\psi)$ for all
 four αPA interaction classes. The two-dimensional maps are accompanied by
 representative line cuts along the collective angular coordinates:
-\(\chi\) describes relative angular registry, while \(\psi\) describes the
+$\chi$ describes relative angular registry, while $\psi$ describes the
 joint angular phase. For this demonstration, the strongest angular
-corrugation occurs mainly along \(\chi\), whereas \(\psi\) provides a weaker
+corrugation occurs mainly along $\chi$, whereas $\psi$ provides a weaker
 screw-periodic modulation. These structured landscapes are the quantities that
 the Fourier representation must reproduce compactly.
 
@@ -217,7 +217,7 @@ diagnostics and configuration options.
 | [`04_fourier_morse.ipynb`](examples/04_fourier_morse.ipynb) | Fit and evaluate the full symmetry-adapted Fourier–Morse model. |
 | [`05_pruned_fourier_morse.ipynb`](examples/05_pruned_fourier_morse.ipynb) | Explore the accuracy–compactness trade-off through coefficient pruning. |
 | [`06_export_model_md.ipynb`](examples/06_export_model_md.ipynb) | Export fitted coefficients for an external molecular-dynamics implementation. |
-| [`07_weight_functions.ipynb`](examples/07_weight_functions.ipynb) | Compare weighting functions used in orientation-resolved \(\alpha\) fitting. |
+| [`07_weight_functions.ipynb`](examples/07_weight_functions.ipynb) | Compare weighting functions used in orientation-resolved $\alpha$ fitting. |
 | [`08_fourier_morse_fit.ipynb`](examples/08_fourier_morse_fit.ipynb) | Run a configurable Fourier–Morse fitting workflow with selectable weighting and interpolation. |
 
 The notebooks are committed without outputs to keep them lightweight and
@@ -241,7 +241,7 @@ five-column, tab-separated table without a header:
 phi1    phi2    zeta    r    pair_energy
 ```
 
-`load_data()` constructs the collective coordinates \(\chi\) and \(\psi\) and
+`load_data()` constructs the collective coordinates $\chi$ and $\psi$ and
 converts the pair energy to the binding-energy column used by the fitting
 workflow.
 
@@ -255,25 +255,25 @@ and interchange symmetries are a worked example, not a universal prescription.
 For each orientational configuration, ChiMorse represents the radial
 interaction as
 
-\[
+$$
 V(r;\chi,\psi)
 = D(\chi,\psi)
 \left[
 e^{-2\alpha(\chi,\psi)[r-r_e(\chi,\psi)]}
 -2e^{-\alpha(\chi,\psi)[r-r_e(\chi,\psi)]}
 \right].
-\]
+$$
 
 The collective angular coordinates used in the current helical formulation are
 
-\[
+$$
 \chi = \varphi_1-h\varphi_2,
 \qquad
 \psi = \varphi_1+h\varphi_2,
-\]
+$$
 
-with \(h=\pm1\) determined by the relative screw direction. The parameter
-fields \(D\), \(r_e\), and optionally \(\alpha\) are represented by truncated
+with $h=\pm1$ determined by the relative screw direction. The parameter
+fields $D$, $r_e$, and optionally $\alpha$ are represented by truncated
 two-dimensional Fourier expansions. Symmetry restrictions are applied at the
 basis level before fitting, and model complexity can then be reduced through
 harmonic selection and coefficient pruning.
