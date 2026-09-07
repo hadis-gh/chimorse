@@ -16,15 +16,12 @@
 ChiMorse is a scientific Python toolkit for constructing compact analytical
 representations of **sampled orientation-dependent pair interactions**. It
 combines a radial Morse model with Fourier representations of the angular
-dependence and provides an end-to-end workflow for fitting, symmetry
-adaptation, convergence analysis, coefficient pruning, error analysis,
-visualization, and export.
+dependence, with tools for fitting, symmetry adaptation, convergence analysis,
+coefficient pruning, validation, visualization, and export.
 
-The current implementation targets pair-interaction landscapes described by
-one intermolecular separation and two periodic orientational coordinates. The
-accompanying α-polyalanine (αPA) dataset is a symmetry-rich worked example;
-the fitting framework itself is not tied to the electronic-structure method
-used to generate the reference energies.
+The current implementation uses one radial and two periodic orientational
+coordinates. The accompanying α-polyalanine (αPA) system serves as a
+symmetry-rich worked example rather than a restriction of the framework.
 
 <p align="center">
   <img src="docs/images/workflow.png"
@@ -57,38 +54,25 @@ larger simulation workflow.
 
 ## Demonstration at a glance
 
-The accompanying study uses rigid chiral α-polyalanine helices as a demanding
-demonstration of the workflow. Four interaction classes arise from the
-combinations of relative handedness and axial alignment:
+The accompanying study demonstrates ChiMorse on four interaction classes of
+rigid chiral α-polyalanine helices. The labels EP, EA, OP, and OA distinguish
+equal/opposite handedness combined with parallel/antiparallel axial alignment.
 
-**EP** = equal-handed/parallel, **EA** = equal-handed/antiparallel,  
-**OP** = opposite-handed/parallel, **OA** = opposite-handed/antiparallel.
+Each class contains roughly **300,000 sampled energy values**. In the compact
+constant-$\alpha$ model, symmetry adaptation reduces the representation to
+54–246 coefficients before pruning and 49–122 afterward, while the unpruned
+models reproduce near-equilibrium energies with RMSE values of approximately
+**3.7–5.0 meV** within $2k_\mathrm{B}T$ at 300 K.
 
-These labels are specific to the αPA demonstration; they are not required by
-the general fitting framework.
-
-For each interaction class, the reference landscape contains roughly
-**300,000 sampled energy values**. In the compact constant-$\alpha$ model,
-symmetry adaptation reduces the Fourier representation to 54–246 coefficients
-before pruning and 49–122 retained coefficients after pruning. The
-symmetry-adapted, unpruned compact models reproduce near-equilibrium energies
-with RMSE values of approximately **3.7–5.0 meV** within $2k_\mathrm{B}T$ at
-300 K.
-
-These numbers are application-specific rather than universal performance
-guarantees; they illustrate the model-compression and accuracy trade-off that
-ChiMorse is designed to quantify.
+These application-specific results illustrate the accuracy–compactness trade-off
+that ChiMorse is designed to quantify.
 
 ### Reference angular landscapes
 
-The figure below shows the sampled well-depth field $D(\chi,\psi)$ for all
-four αPA interaction classes. The two-dimensional maps are accompanied by
-representative line cuts along the collective angular coordinates:
-$\chi$ describes relative angular registry, while $\psi$ describes the
-joint angular phase. For this demonstration, the strongest angular
-corrugation occurs mainly along $\chi$, whereas $\psi$ provides a weaker
-screw-periodic modulation. These structured landscapes are the quantities that
-the Fourier representation must reproduce compactly.
+The figure below shows the sampled well-depth field $D(\chi,\psi)$ and
+representative angular cuts for all four αPA interaction classes. In this
+demonstration, the dominant variation occurs along $\chi$, while $\psi$
+adds a weaker screw-periodic modulation.
 
 <p align="center">
   <img src="docs/images/psi_chi_panel.svg"
@@ -104,13 +88,10 @@ the Fourier representation must reproduce compactly.
 
 ### Controlled coefficient pruning
 
-After the harmonic resolution has been selected, ChiMorse can further reduce
-the representation by removing weak Fourier coefficients and refitting the
-remaining terms. The curves below show the reconstruction RMSE as a function
-of the number of retained symmetry-allowed coefficients for the compact model.
-Once the dominant terms are included, the error approaches a plateau. The
-retained model is therefore selected near the onset of this plateau, where
-additional coefficients provide little improvement in reconstruction accuracy.
+After selecting the harmonic resolution, ChiMorse can further reduce the
+model by pruning weak Fourier coefficients. The curves below show how the
+reconstruction RMSE approaches a plateau as the dominant coefficients are
+retained, providing a practical accuracy–compactness criterion.
 
 <p align="center">
   <img src="docs/images/pruning.svg"
