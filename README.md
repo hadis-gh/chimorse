@@ -2,76 +2,131 @@
   <img src="docs/images/logo_chimorse.png" alt="ChiMorse logo" width="300"/>
 </p>
 
-<h1 align="center">ChiMorse</h1>
-
 <p align="center">
-  Compact, symmetry-constrained Fourier–Morse models for anisotropic pair interactions.
+  <strong>From sampled anisotropic interaction data to compact analytical potentials.</strong>
 </p>
 
 <p align="center">
   <img src="https://img.shields.io/badge/python-%E2%89%A53.9-blue.svg" alt="Python ≥3.9"/>
   <img src="https://img.shields.io/badge/license-GPLv3%2B-blue.svg" alt="GPL-3.0-or-later"/>
   <img src="https://github.com/hadis-gh/chimorse/actions/workflows/test.yml/badge.svg" alt="Tests"/>
+  <img src="https://github.com/hadis-gh/chimorse/actions/workflows/docs.yml/badge.svg" alt="Documentation"/>
 </p>
 
-ChiMorse is a Python package for converting sampled, orientation-dependent pair-interaction energies into compact analytical potentials. It combines a radial Morse potential with symmetry-adapted Fourier expansions of the orientational dependence and provides tools for fitting, convergence analysis, coefficient pruning, model evaluation, visualization, and export.
+ChiMorse is a scientific Python toolkit for constructing compact analytical
+representations of **sampled orientation-dependent pair interactions**. It
+combines a radial Morse model with Fourier representations of the angular
+dependence and provides an end-to-end workflow for fitting, symmetry
+adaptation, convergence analysis, coefficient pruning, error analysis,
+visualization, and export.
 
-The framework is formulated for anisotropic pair interactions in a two-dimensional surface geometry. The reference workflow included with the repository uses **α-polyalanine (αPA) helices** as a symmetry-rich demonstration case and fits SCC-DFTB interaction-energy data.
+The current implementation targets pair-interaction landscapes described by
+one intermolecular separation and two periodic orientational coordinates. The
+accompanying α-polyalanine (αPA) dataset is a symmetry-rich worked example;
+the fitting framework itself is not tied to the electronic-structure method
+used to generate the reference energies.
 
 <p align="center">
-  <img src="docs/images/workflow_chimorse.png" alt="ChiMorse workflow from tabulated interaction data to a reduced analytical model" width="1200"/>
+  <img src="docs/images/workflow.png"
+       alt="ChiMorse workflow from sampled interaction data to a reduced analytical model"
+       width="1200"/>
 </p>
 
-## Why ChiMorse?
+<p align="center">
+  <em>ChiMorse workflow: sampled interaction data are converted into local Morse
+  parameters, represented in a Fourier basis, optionally restricted by known
+  symmetries, tested for harmonic convergence, reduced by coefficient pruning,
+  and exported as an analytical model.</em>
+</p>
 
-Dense multidimensional interaction tables retain detailed anisotropic energetics, but they require storage and interpolation during simulation. Simple analytical pair potentials are compact and efficient, but do not by themselves capture orientation dependence.
+## What ChiMorse does
 
-ChiMorse provides an intermediate representation that is:
+| Stage | Capability |
+|---|---|
+| **Input** | Load sampled radial interaction profiles over periodic orientations. |
+| **Radial model** | Extract local Morse parameters \(D\), \(r_e\), and optionally \(\alpha\). |
+| **Angular model** | Fit the parameter fields with two-dimensional Fourier expansions. |
+| **Physics constraints** | Restrict the basis using known periodicity and interchange symmetries. |
+| **Model selection** | Quantify convergence with harmonic resolution and prune weak coefficients. |
+| **Validation** | Compare reference and reconstructed energies with equilibrium and energy-window error metrics. |
+| **Output** | Evaluate the analytical potential on arbitrary configurations and export coefficients for external simulation codes. |
 
-- **Analytical** — the radial interaction is represented by a Morse potential.
-- **Systematically refinable** — angular resolution is controlled by Fourier harmonic order.
-- **Symmetry aware** — known periodicity and exchange symmetries can be imposed directly on the Fourier basis.
-- **Reducible** — harmonic truncation and coefficient pruning provide controlled model compression.
-- **Interpretable** — individual Fourier modes correspond to characteristic angular periodicities.
-- **Simulation oriented** — fitted coefficients can be exported for evaluation in external simulation codes.
+This makes ChiMorse useful when a dense sampled interaction landscape is
+accurate but inconvenient to store, interpolate, or evaluate repeatedly in a
+larger simulation workflow.
 
-## Method at a glance
+## Demonstration at a glance
 
-For each orientational configuration, ChiMorse represents the radial interaction as
+The accompanying study uses rigid chiral α-polyalanine helices as a demanding
+demonstration of the workflow. Four interaction classes arise from the
+combinations of relative handedness and axial alignment:
 
-$$
-V(r;\chi,\psi)
-= D(\chi,\psi)
-\left[
-\exp\{-2\alpha(\chi,\psi)[r-r_e(\chi,\psi)]\}
--2\exp\{-\alpha(\chi,\psi)[r-r_e(\chi,\psi)]\}
-\right].
-$$
+**EP** = equal-handed/parallel, **EA** = equal-handed/antiparallel,  
+**OP** = opposite-handed/parallel, **OA** = opposite-handed/antiparallel.
 
-The angular coordinates are
+These labels are specific to the αPA demonstration; they are not required by
+the general fitting framework.
 
-$$
-\chi = \varphi_1-h\varphi_2,
-\qquad
-\psi = \varphi_1+h\varphi_2,
-$$
+For each interaction class, the reference landscape contains roughly
+**300,000 sampled energy values**. In the compact constant-\(\alpha\) model,
+symmetry adaptation reduces the Fourier representation to 54–246 coefficients
+before pruning and 49–122 retained coefficients after pruning. The
+symmetry-adapted, unpruned compact models reproduce near-equilibrium energies
+with RMSE values of approximately **3.7–5.0 meV** within \(2k_\mathrm{B}T\) at
+300 K.
 
-where $h=\pm1$ specifies the relative screw direction. The Morse parameters $D$, $r_e$, and optionally $\alpha$ are represented by truncated two-dimensional Fourier expansions in $(\chi,\psi)$.
+These numbers are application-specific rather than universal performance
+guarantees; they illustrate the model-compression and accuracy trade-off that
+ChiMorse is designed to quantify.
 
-For the αPA demonstration, four interaction classes are distinguished by relative handedness and axial direction:
+### Reference angular landscapes
 
-| Class | Relative handedness | Relative direction | $\chi$ exchange symmetry |
-|:---:|---|---|:---:|
-| `EP` | equal | parallel | yes |
-| `EA` | equal | antiparallel | no |
-| `OP` | opposite | parallel | yes |
-| `OA` | opposite | antiparallel | no |
+The figure below shows the sampled well-depth field \(D(\chi,\psi)\) for all
+four αPA interaction classes. The two-dimensional maps are accompanied by
+representative line cuts along the collective angular coordinates:
+\(\chi\) describes relative angular registry, while \(\psi\) describes the
+joint angular phase. For this demonstration, the strongest angular
+corrugation occurs mainly along \(\chi\), whereas \(\psi\) provides a weaker
+screw-periodic modulation. These structured landscapes are the quantities that
+the Fourier representation must reproduce compactly.
 
-For the complete formulation, symmetry relations, convergence analysis, and validation, see the accompanying scientific paper listed under [Citation](#citation).
+<p align="center">
+  <img src="docs/images/psi_chi_panel.svg"
+       alt="Reference well-depth landscapes D(chi, psi) and representative angular line cuts for the four alpha-polyalanine interaction classes"
+       width="800"/>
+</p>
+
+<p align="center">
+  <em>Reference angular interaction landscapes for EP, EA, OP, and OA.
+  The heat maps show D(χ, ψ); the accompanying cuts make the dominant angular
+  structure and symmetry-related features directly visible.</em>
+</p>
+
+### Controlled coefficient pruning
+
+After the harmonic resolution has been selected, ChiMorse can further reduce
+the representation by removing weak Fourier coefficients and refitting the
+remaining terms. The curves below show the reconstruction RMSE as a function
+of the number of retained symmetry-allowed coefficients for the compact model.
+Once the dominant terms are included, the error approaches a plateau. The
+retained model is therefore selected near the onset of this plateau, where
+additional coefficients provide little improvement in reconstruction accuracy.
+
+<p align="center">
+  <img src="docs/images/pruning.svg"
+       alt="Reconstruction RMSE versus number of retained Fourier coefficients during pruning for the four alpha-polyalanine interaction classes"
+       width="800"/>
+</p>
+
+<p align="center">
+  <em>Magnitude-based pruning for the compact model. The plateau in
+  reconstruction error provides a practical criterion for balancing model
+  accuracy against the number of retained coefficients.</em>
+</p>
 
 ## Installation
 
-ChiMorse is currently installed from source.
+ChiMorse is currently installed from source:
 
 ```bash
 git clone https://github.com/hadis-gh/chimorse.git
@@ -79,7 +134,8 @@ cd chimorse
 python -m pip install -e .
 ```
 
-Python **3.9 or newer** is required. The main dependencies are NumPy, pandas, SciPy, Matplotlib, seaborn, and lmfit.
+The package requires **Python 3.9 or newer**. The current continuous-integration
+test matrix covers **Python 3.9–3.12**.
 
 For development and testing:
 
@@ -88,9 +144,16 @@ python -m pip install -e ".[test]"
 pytest -q
 ```
 
+To run the notebooks:
+
+```bash
+python -m pip install -e ".[examples]"
+```
+
 ## Quick start
 
-The reference αPA dataset is archived separately on Zenodo. ChiMorse can download it on demand and reuse the local copy on subsequent runs.
+The reference αPA dataset is archived separately on Zenodo. ChiMorse can
+download it on demand and reuse the local copy on later runs.
 
 ```python
 from pathlib import Path
@@ -100,10 +163,10 @@ from chimorse.dataio import load_data
 from chimorse.datasets import ensure_reference_data
 from chimorse.fitting import generate_fourier_morse_data
 
-# Download once; subsequent calls reuse the local copy.
+# Download the reference data once.
 data_dir = ensure_reference_data("PA", data_root=Path("data"))
 
-# Read molecule-specific metadata from the downloaded dataset.
+# Read dataset metadata.
 molecule = load_molecule_info(
     "PA",
     metadata_path=data_dir / "metadata.json",
@@ -113,7 +176,7 @@ molecule = load_molecule_info(
 interaction = "EP"
 df = load_data(molecule, interaction, zero_zeta=True)
 
-# Choose the retained Fourier harmonic orders for each class.
+# Harmonic cutoffs selected from the convergence analysis.
 harmonic_ceils = {
     "EP": (8, 1),
     "EA": (8, 1),
@@ -121,7 +184,8 @@ harmonic_ceils = {
     "OA": (20, 1),
 }
 
-# Fit the Fourier–Morse representation and evaluate it on the reference grid.
+# Fit the Fourier–Morse representation and evaluate it
+# on the reference grid.
 df_model = generate_fourier_morse_data(
     df,
     molecule,
@@ -132,141 +196,174 @@ df_model = generate_fourier_morse_data(
 )
 ```
 
-The downloader and data parser are intentionally separate: `ensure_reference_data()` handles external data acquisition, while `load_data()` operates only on local files.
+`df_model` contains the reconstructed interaction on the reference grid and
+can be passed directly to the plotting and error-analysis utilities.
 
-For visualization, model reduction, and export workflows, use the example notebooks below.
+The downloader and parser are deliberately separate:
+`ensure_reference_data()` handles external acquisition, whereas `load_data()`
+operates only on local files.
 
 ## Example workflows
 
-The notebooks are designed to illustrate successive parts of the workflow, but each notebook performs the same reference-data availability check and can therefore be opened independently.
+The notebooks are organized as a progressive scientific workflow. The first
+six form the main end-to-end path; the last two provide additional fitting
+diagnostics and configuration options.
 
 | Notebook | Purpose |
 |---|---|
-| [`01_raw_visualization.ipynb`](examples/01_raw_visualization.ipynb) | Inspect raw radial curves, energy landscapes, and angular line cuts. |
-| [`02_radial_fit_ER.ipynb`](examples/02_radial_fit_ER.ipynb) | Compare radial Morse and Lennard-Jones fits for selected orientations. |
-| [`03_harmonic_convergence.ipynb`](examples/03_harmonic_convergence.ipynb) | Examine reconstruction error as Fourier harmonic resolution is increased. |
+| [`01_raw_visualization.ipynb`](examples/01_raw_visualization.ipynb) | Inspect radial profiles, angular energy landscapes, and representative cuts. |
+| [`02_radial_fit_ER.ipynb`](examples/02_radial_fit_ER.ipynb) | Compare Morse and Lennard–Jones fits for selected radial profiles. |
+| [`03_harmonic_convergence.ipynb`](examples/03_harmonic_convergence.ipynb) | Measure reconstruction error as Fourier harmonic resolution is increased. |
 | [`04_fourier_morse.ipynb`](examples/04_fourier_morse.ipynb) | Fit and evaluate the full symmetry-adapted Fourier–Morse model. |
-| [`05_pruned_fourier_morse.ipynb`](examples/05_pruned_fourier_morse.ipynb) | Reduce the fitted representation through coefficient pruning and assess the accuracy–compactness trade-off. |
-| [`06_export_model_md.ipynb`](examples/06_export_model_md.ipynb) | Export fitted interaction models for use by an external molecular-dynamics implementation. |
+| [`05_pruned_fourier_morse.ipynb`](examples/05_pruned_fourier_morse.ipynb) | Explore the accuracy–compactness trade-off through coefficient pruning. |
+| [`06_export_model_md.ipynb`](examples/06_export_model_md.ipynb) | Export fitted coefficients for an external molecular-dynamics implementation. |
+| [`07_weight_functions.ipynb`](examples/07_weight_functions.ipynb) | Compare weighting functions used in orientation-resolved \(\alpha\) fitting. |
+| [`08_fourier_morse_fit.ipynb`](examples/08_fourier_morse_fit.ipynb) | Run a configurable Fourier–Morse fitting workflow with selectable weighting and interpolation. |
 
-## Reference data
+The notebooks are committed without outputs to keep them lightweight and
+reproducible. The curated figures above therefore give readers a representative
+view of the input landscapes and model-reduction behavior without requiring
+them to execute the examples.
 
-The scientific reference data are **not stored in this Git repository**. Keeping code and reference data separate avoids duplicating an archived scientific dataset and makes the exact dataset version explicit.
+## Using ChiMorse with another interaction dataset
 
-The currently registered reference dataset is:
+ChiMorse is independent of the method used to generate the reference
+interaction energies: the sampled landscape may come from
+electronic-structure calculations, a classical model, another simulation
+method, or any other source that produces a compatible interaction table.
 
-- **System:** α-polyalanine (`PA`)
-- **Archive:** Zenodo
-- **Version-specific DOI:** `10.5281/zenodo.21904448`
-- **Local layout after download:** `data/PA/`
-
-The dataset contains a `metadata.json` file together with the tabulated interaction files used by the examples. `load_molecule_info()` reads the molecule metadata, and `load_data()` reads the interaction file selected in that metadata.
-
-A raw interaction table contains five tab-separated columns without a header:
+The **current high-level workflow is not an arbitrary N-dimensional fitter**.
+It assumes the geometry implemented in the package: a radial coordinate plus
+two periodic orientational coordinates. The built-in αPA loader expects a
+five-column, tab-separated table without a header:
 
 ```text
 phi1    phi2    zeta    r    pair_energy
 ```
 
-ChiMorse derives $(\chi,\psi)$ from $(\varphi_1,\varphi_2)$ and converts the pair energy to a binding energy using the isolated-helix reference energy stored in the dataset metadata.
+`load_data()` constructs the collective coordinates \(\chi\) and \(\psi\) and
+converts the pair energy to the binding-energy column used by the fitting
+workflow.
 
-See [Citation](#citation) for the dataset citation placeholder that will be finalized before release.
+For a different molecular or particle system, the user must supply compatible
+metadata/data and choose angular coordinates, harmonic resolution, and symmetry
+restrictions that are physically appropriate for that system. The αPA screw
+and interchange symmetries are a worked example, not a universal prescription.
 
-## Package layout
+## Method in brief
+
+For each orientational configuration, ChiMorse represents the radial
+interaction as
+
+\[
+V(r;\chi,\psi)
+= D(\chi,\psi)
+\left[
+e^{-2\alpha(\chi,\psi)[r-r_e(\chi,\psi)]}
+-2e^{-\alpha(\chi,\psi)[r-r_e(\chi,\psi)]}
+\right].
+\]
+
+The collective angular coordinates used in the current helical formulation are
+
+\[
+\chi = \varphi_1-h\varphi_2,
+\qquad
+\psi = \varphi_1+h\varphi_2,
+\]
+
+with \(h=\pm1\) determined by the relative screw direction. The parameter
+fields \(D\), \(r_e\), and optionally \(\alpha\) are represented by truncated
+two-dimensional Fourier expansions. Symmetry restrictions are applied at the
+basis level before fitting, and model complexity can then be reduced through
+harmonic selection and coefficient pruning.
+
+For the full derivation, validation, and αPA symmetry relations, see the
+accompanying scientific manuscript.
+
+## Software engineering and reproducibility
+
+The repository is structured as a reusable scientific-software project rather
+than only as paper-supporting scripts:
 
 ```text
-src/chimorse/
-├── analysis.py   # symmetry operations, minima extraction, error analysis
-├── config.py     # molecule metadata, plotting configuration, shared constants
-├── dataio.py     # local data parsing and model export utilities
-├── datasets.py   # reference-dataset acquisition and checksum validation
-├── fitting.py    # radial/Fourier–Morse fitting and coefficient pruning
-├── fourier.py    # symmetry-adapted Fourier bases and design matrices
-├── models.py     # Morse/Lennard-Jones and anisotropic potential models
-└── plotting.py   # visualization and diagnostic plotting
+src/chimorse/       installable Python package
+tests/              automated unit/integration tests
+examples/           reproducible Jupyter workflows
+docs/               Sphinx user and API documentation
+.github/workflows/  continuous integration and documentation deployment
 ```
 
-The repository additionally contains:
-
-```text
-examples/          Jupyter workflows
-tests/             automated tests
-docs/              figures and documentation assets
-.github/workflows/ continuous-integration configuration
-```
-
-## Using ChiMorse with another dataset
-
-The αPA dataset is the current worked example, but the fitting code is organized around dataset metadata rather than a hard-coded molecule registry. A compatible dataset needs:
-
-1. a `metadata.json` describing the molecule, available interaction classes, and data filenames; and
-2. one tabulated interaction file for each declared interaction class.
-
-The symmetry assumptions and harmonic basis must still be chosen consistently with the physical system. The present paper and examples specifically document the symmetry constraints used for the chiral αPA demonstration.
+The workflow additionally separates source code from archived scientific data,
+uses a version-specific Zenodo record for the reference dataset, validates
+downloaded files when checksum metadata are available, and supports JSON export
+of fitted analytical models for external simulation implementations.
 
 ## Documentation
 
-The Sphinx documentation source is available in [`ChiMorse Page`](https://hadis-gh.github.io/chimorse/) and includes installation and getting-started guides, a software-oriented description of the Fourier–Morse method, reference-data and example-workflow guidance, and an API reference generated from the package docstrings.
+The rendered documentation is available at
+[hadis-gh.github.io/chimorse](https://hadis-gh.github.io/chimorse/).
 
-To build the documentation locally:
+It includes installation and getting-started guides, the software-oriented
+method description, reference-data guidance, example workflows, and an API
+reference generated from the package docstrings.
+
+To build it locally:
 
 ```bash
 python -m pip install -e ".[docs]"
 python -m sphinx -W -b html docs docs/_build/html
 ```
 
-The worked notebooks in `examples/` remain the most detailed end-to-end scientific demonstrations.
+## Reference data
+
+The scientific reference data are kept outside the Git repository.
+
+- **System:** α-polyalanine (`PA`)
+- **Archive:** Zenodo
+- **Version-specific DOI:** `10.5281/zenodo.21904448`
+- **Local layout after download:** `data/PA/`
+
+For a published analysis, record both the ChiMorse software release/version and
+the dataset DOI used to generate the results.
 
 ## Citation
 
-ChiMorse separates citation of the **software**, the **scientific method/paper**, and the **reference dataset**. Please cite the items relevant to your use.
+Please cite the resources relevant to your use: the software, the scientific
+method/paper, and the reference dataset are intentionally identified
+separately.
 
 ### Software
 
-The repository contains a [`CITATION.cff`](CITATION.cff) file. On GitHub, the repository's **Cite this repository** menu can be used to export the software citation metadata.
+The repository contains [`CITATION.cff`](CITATION.cff). GitHub's
+**Cite this repository** menu can export the software citation metadata.
 
-A persistent software archive/DOI will be added when the first GitHub release is deposited on Zenodo.
+The scientific manuscript currently cites the ChiMorse software record as:
 
-### Scientific paper
+> Hadis Ghodrati and Jeffrey Kelling, **ChiMorse Python package**.  
+> DOI: `10.5281/zenodo.22071766`
 
-If your work uses the Fourier–Morse methodology or results described in the accompanying study, please also cite:
+### Scientific manuscript
+
+If your work uses the Fourier–Morse methodology described in the accompanying
+study, please also cite:
 
 > Hadis Ghodrati, Sibylle Gemming, Florian Günther, and Jeffrey Kelling,  
-> **“A Symmetry-Constrained Fourier–Morse Framework for Compact Anisotropic Interaction Potentials in Surface Self-Assembly.”**  
-> *Publication details and DOI to be added when available.*
+> **“A Symmetry-Constrained Fourier–Morse Framework for Compact Anisotropic Interaction Potentials.”**  
+> *Manuscript/preprint details will be added when publicly available.*
 
 ### Reference dataset
 
-If you use the αPA SCC-DFTB reference data, please cite the archived dataset separately:
-
-> **α-polyalanine interaction-energy dataset.**  
-> Zenodo, version-specific DOI: `10.5281/zenodo.21904448`.  
-> *Full dataset creator/title citation to be inserted from the finalized Zenodo metadata before release.*
-
-## Reproducibility
-
-The repository is organized so that the software and archived scientific data remain independently identifiable:
-
-- the source code is versioned in Git;
-- the reference dataset is retrieved from a version-specific Zenodo record;
-- downloaded files are checksum-validated when checksum metadata are provided by Zenodo;
-- automated tests run through GitHub Actions on supported Python versions; and
-- release citation metadata are stored in `CITATION.cff`.
-
-For a published analysis, record both the ChiMorse release/version and the dataset DOI used to generate the results.
+If you use the αPA reference data, please cite the Zenodo dataset record
+associated with DOI `10.5281/zenodo.21904448`.
 
 ## Contributing
 
-Bug reports, reproducibility issues, and focused contributions are welcome. See [`CONTRIBUTING.md`](CONTRIBUTING.md) for the repository's current contribution guidance.
-
-For changes to the scientific model, please describe the physical assumption being changed and include or update tests where practical.
+Bug reports, reproducibility issues, and focused contributions are welcome.
+See [`CONTRIBUTING.md`](CONTRIBUTING.md) for the current contribution
+guidelines.
 
 ## License
 
-ChiMorse is released under the **GNU General Public License v3.0 or later (GPL-3.0-or-later)**. See [`LICENSE`](LICENSE) for the full license text.
-
-The external reference dataset is a separate research object and is subject to the licensing and citation terms of its Zenodo record.
-
-## Acknowledgements
-
-Development of ChiMorse was supported by the German Research Foundation (DFG), TRR-386, TP A4 and B2, project number 514664767.
+ChiMorse is distributed under the
+[GNU General Public License v3.0 or later](LICENSE).
