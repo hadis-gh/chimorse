@@ -23,6 +23,20 @@ The current implementation uses one radial and two periodic orientational
 coordinates. The accompanying α-polyalanine (αPA) system is a symmetry-rich
 worked example rather than a restriction of the framework.
 
+## Contents
+
+- [What ChiMorse does](#what-chimorse-does)
+- [Demonstration at a glance](#demonstration-at-a-glance)
+- [Installation](#installation)
+- [Quick start](#quick-start)
+- [Example workflows](#example-workflows)
+- [Using another interaction dataset](#using-chimorse-with-another-interaction-dataset)
+- [Method in brief](#method-in-brief)
+- [Software engineering and reproducibility](#software-engineering-and-reproducibility)
+- [Documentation](#documentation)
+- [Reference data and provenance](#reference-data-and-provenance)
+- [Citation](#citation)
+
 <p align="center">
   <img src="docs/images/workflow.png"
        alt="ChiMorse workflow from sampled interaction data to a reduced analytical model"
@@ -45,31 +59,27 @@ worked example rather than a restriction of the framework.
 | **Validation** | Compare reconstructed parameters and energies against the reference landscape. |
 | **Output** | Evaluate the analytical potential and export fitted coefficients for external simulation codes. |
 
-ChiMorse is intended for cases where a densely sampled interaction landscape is
-accurate but inconvenient to store, interpolate, or repeatedly evaluate in a
-larger simulation workflow.
+ChiMorse is intended for cases where a dense sampled interaction landscape
+needs to be replaced by a compact, directly evaluable analytical model.
 
 ## Demonstration at a glance
 
 The accompanying study demonstrates ChiMorse on four classes of rigid chiral
-α-polyalanine helices. EP, EA, OP, and OA denote the combinations of
-equal/opposite handedness and parallel/antiparallel axial alignment.
+α-polyalanine helices (EP, EA, OP, and OA), corresponding to combinations of
+relative handedness and axial alignment. Each class contains roughly
+**300,000 sampled energy values**.
 
-Each class contains roughly **300,000 sampled energy values**. For the compact
-constant-$\alpha$ representation, symmetry adaptation reduces the model to
-54–246 Fourier coefficients before pruning and 49–122 afterward. The unpruned
-compact models reproduce near-equilibrium energies with RMSE values of about
-**3.7–5.0 meV** within $2k_\mathrm{B}T$ at 300 K.
-
-These application-specific results illustrate the accuracy–compactness
-trade-off that ChiMorse is designed to quantify.
+For the compact constant-$\alpha$ representation, symmetry adaptation reduces
+the model to 54–246 Fourier coefficients before pruning and 49–122 afterward,
+while the unpruned models reproduce near-equilibrium energies with RMSE values
+of about **3.7–5.0 meV** within $2k_\mathrm{B}T$ at 300 K.
 
 ### Reference angular landscapes
 
-The sampled well-depth field $D(\chi,\psi)$ reveals the orientational structure
-that the analytical model must reproduce. In the αPA demonstration, the
-strongest variation occurs along $\chi$, while $\psi$ adds a weaker
-screw-periodic modulation.
+The sampled $D(\chi,\psi)$ fields show the orientational structure that the
+analytical model must reproduce; in this demonstration, the strongest
+variation is along $\chi$, with a weaker screw-periodic modulation along
+$\psi$.
 
 <p align="center">
   <img src="docs/images/psi_chi_panel.png"
@@ -77,17 +87,10 @@ screw-periodic modulation.
        width="800"/>
 </p>
 
-<p align="center">
-  <em>Reference D(χ, ψ) landscapes and representative angular cuts for
-  the four αPA interaction classes.</em>
-</p>
-
 ### Harmonic convergence
 
-Fourier resolution is selected systematically rather than fixed a priori. The
-reconstruction RMSE is monitored as the retained harmonic orders are increased;
-the chosen cutoffs lie near the onset of the error plateau, beyond which extra
-harmonics provide little improvement.
+The Fourier resolution is selected from reconstruction-error convergence: the
+chosen harmonic cutoffs lie near the onset of the RMSE plateau.
 
 <p align="center">
   <img src="docs/images/harmonic_panel.png"
@@ -95,18 +98,10 @@ harmonics provide little improvement.
        width="800"/>
 </p>
 
-<p align="center">
-  <em>Harmonic-convergence analysis for D(χ, ψ). The αPA landscapes require
-  different resolution along χ, while the first symmetry-allowed ψ harmonic
-  captures the dominant joint-phase dependence.</em>
-</p>
-
 ### Controlled coefficient pruning
 
-Once the harmonic basis is selected, ChiMorse can further reduce the model by
-pruning weak Fourier coefficients. As the dominant terms are retained, the
-reconstruction RMSE approaches a plateau, providing a practical criterion for
-balancing accuracy against model size.
+After selecting the harmonic basis, weak Fourier coefficients can be removed
+until further pruning begins to noticeably increase reconstruction error.
 
 <p align="center">
   <img src="docs/images/pruning_panel.png"
@@ -114,10 +109,9 @@ balancing accuracy against model size.
        width="800"/>
 </p>
 
-<p align="center">
-  <em>Magnitude-based coefficient pruning for the compact model. Models are
-  retained near the onset of the RMSE plateau.</em>
-</p>
+Together, these examples illustrate the central workflow: resolve the sampled
+anisotropy, select sufficient harmonic complexity, and reduce the final model
+without unnecessary loss of accuracy.
 
 ## Installation
 
@@ -307,22 +301,33 @@ python -m pip install -e ".[docs]"
 python -m sphinx -W -b html docs docs/_build/html
 ```
 
-## Reference data
+## Reference data and provenance
 
-The scientific reference data are kept outside the Git repository.
+The αPA reference data are kept outside the Git repository and archived on
+Zenodo for reproducible access.
 
 - **System:** α-polyalanine (`PA`)
 - **Archive:** Zenodo
 - **Version-specific DOI:** [`10.5281/zenodo.21904448`](https://doi.org/10.5281/zenodo.21904448)
 - **Local layout after download:** `data/PA/`
 
-For reproducible analyses, record both the ChiMorse software version and the
-dataset DOI used to generate the results.
+If you use these αPA interaction data in scientific work, please cite the study
+in which the interaction model and dataset were originally developed:
+
+> Hadis Ghodrati, Kevin Preis, Thi Ngoc Ha Nguyen, Christoph Tegenkamp,
+> Sibylle Gemming, Jeffrey Kelling, and Florian Günther,  
+> **“Simulation of Self-Assembled Monolayers of Polyalanine α-Helices:
+> Development and Application of an Effective Potential for Film Structure
+> Predictions.”**  
+> *ACS Applied Materials & Interfaces* **18** (21), 30467–30479 (2026).  
+> DOI: [`10.1021/acsami.6c01087`](https://doi.org/10.1021/acsami.6c01087)
+
+The Zenodo record provides the archived data; the article above is the preferred
+scientific citation for the αPA reference interaction.
 
 ## Citation
 
-Please cite the resources relevant to your use. The software, scientific
-method, and reference dataset are identified separately.
+Please cite the resources relevant to how you use ChiMorse.
 
 ### Software
 
@@ -341,12 +346,12 @@ study, please also cite:
 > **“A Symmetry-Constrained Fourier–Morse Framework for Compact Anisotropic Interaction Potentials.”**  
 > *Manuscript/preprint details will be added when publicly available.*
 
-### Reference dataset
+### αPA reference interaction
 
-If you use the αPA reference data, please cite the corresponding Zenodo dataset
-record:
-
-> [`10.5281/zenodo.21904448`](https://doi.org/10.5281/zenodo.21904448)
+If you use the αPA reference interaction data, please cite the originating
+*ACS Applied Materials & Interfaces* article listed in
+[Reference data and provenance](#reference-data-and-provenance). The Zenodo
+record is provided as the reproducible data archive.
 
 ## Contributing
 
