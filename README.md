@@ -23,6 +23,17 @@ The current implementation uses one radial and two periodic orientational
 coordinates. The accompanying α-polyalanine (αPA) system is a symmetry-rich
 worked example rather than a restriction of the framework.
 
+<p align="center">
+  <img src="docs/images/workflow.png"
+       alt="ChiMorse workflow from sampled interaction data to a reduced analytical model"
+       width="1200"/>
+</p>
+
+<p align="center">
+  <em>From sampled interaction data to a symmetry-adapted, validated, and
+  optionally pruned analytical potential.</em>
+</p>
+
 ## Contents
 
 - [What ChiMorse does](#what-chimorse-does)
@@ -36,17 +47,6 @@ worked example rather than a restriction of the framework.
 - [Documentation](#documentation)
 - [Reference data and provenance](#reference-data-and-provenance)
 - [Citation](#citation)
-
-<p align="center">
-  <img src="docs/images/workflow.png"
-       alt="ChiMorse workflow from sampled interaction data to a reduced analytical model"
-       width="1200"/>
-</p>
-
-<p align="center">
-  <em>From sampled interaction data to a symmetry-adapted, validated, and
-  optionally pruned analytical potential.</em>
-</p>
 
 ## What ChiMorse does
 
@@ -69,7 +69,7 @@ The accompanying study demonstrates ChiMorse on four classes of rigid chiral
 relative handedness and axial alignment. Each class contains roughly
 **300,000 sampled energy values**.
 
-For the compact constant-$\alpha$ representation, symmetry adaptation reduces
+For the compact constant-α representation, symmetry adaptation reduces
 the model to 54–246 Fourier coefficients before pruning and 49–122 afterward,
 while the unpruned models reproduce near-equilibrium energies with RMSE values
 of about **3.7–5.0 meV** within $2k_\mathrm{B}T$ at 300 K.
@@ -217,11 +217,11 @@ methods, or other sources of tabulated pair interactions.
 
 The **current high-level workflow is not an arbitrary N-dimensional fitter**.
 It assumes one radial coordinate and two periodic orientational coordinates.
-The built-in αPA loader expects a five-column, tab-separated table without a
+The built-in αPA loader expects a four-column, tab-separated table without a
 header:
 
 ```text
-phi1    phi2    zeta    r    pair_energy
+phi1    phi2    r    pair_energy
 ```
 
 `load_data()` constructs the collective coordinates $\chi$ and $\psi$ and
@@ -240,12 +240,10 @@ interaction using a Morse potential whose parameters may depend on the angular
 coordinates:
 
 $$
-V(r;\chi,\psi)
-=
+V(r;\chi,\psi)=
 D(\chi,\psi)
 \left[
-e^{-2\alpha(\chi,\psi)[r-r_e(\chi,\psi)]}
--
+e^{-2\alpha(\chi,\psi)[r-r_e(\chi,\psi)]}-
 2e^{-\alpha(\chi,\psi)[r-r_e(\chi,\psi)]}
 \right].
 $$
