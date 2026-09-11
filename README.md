@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/images/logo_chimorse.png" alt="ChiMorse logo" width="60%"/>
+  <img src="docs/images/logo_chimorse.png" alt="ChiMorse logo" width="45%"/>
 </p>
 
 <p align="center">
@@ -76,7 +76,7 @@ he first diagnostic is inspection of the extracted parameter landscapes. The sam
 <p align="center">
   <img src="docs/images/psi_chi_panel.png"
        alt="Reference well-depth landscapes D(chi, psi) and representative angular cuts for the four alpha-polyalanine interaction classes"
-       width="70%"/>
+       width="90%"/>
 </p>
 
 ### Harmonic convergence
@@ -86,7 +86,7 @@ The Fourier resolution is selected by monitoring the reconstruction RMSE as the 
 <p align="center">
   <img src="docs/images/harmonic_panel.png"
        alt="Reconstruction RMSE as a function of retained Fourier harmonic resolution for the four alpha-polyalanine interaction classes"
-       width="70%"/>
+       width="90%"/>
 </p>
 
 ### Controlled coefficient pruning
@@ -96,7 +96,7 @@ Once the harmonic basis has been selected, weak Fourier coefficients can be remo
 <p align="center">
   <img src="docs/images/pruning_panel.png"
        alt="Reconstruction RMSE versus number of retained Fourier coefficients during pruning for the four alpha-polyalanine interaction classes"
-       width="70%"/>
+       width="90%"/>
 </p>
 
 Together, these examples illustrate the central workflow: resolve the sampled
