@@ -65,16 +65,13 @@ relative handedness and axial alignment. Each class contains roughly
 **300,000 sampled energy values**.
 
 For the compact constant-α representation, symmetry adaptation reduces
-the model to 54–246 Fourier coefficients before pruning and 49–122 afterward,
-while the models reproduce near-equilibrium energies with RMSE values
-of about **3.5–5.1 meV** and within $2k_\mathrm{B}T$ at 300 K.
+the model to 54–246 Fourier coefficients before pruning and 49–122 afterward.
+Within the $\Delta E_{\rm ref}\le 2k_\mathrm{B}T$ window at 300 K, the four 
+interaction classes have energy RMSEs of **3.69–5.04 meV**.
 
 ### Reference angular landscapes
 
-One of the features of the package is the analysis of the key parameters of the dataset. The sampled $D(\chi,\psi)$ fields show the orientational structure that the
-analytical model must reproduce; in this demonstration, the strongest
-variation is along $\chi$, with a weaker screw-periodic modulation along
-$\psi$.
+he first diagnostic is inspection of the extracted parameter landscapes. The sampled $D(\chi,\psi)$ fields reveal the orientational structure that the analytical representation must capture. For the αPA demonstration, the dominant variation occurs along $\chi$, while $\psi$ introduces a weaker screw-periodic modulation.
 
 <p align="center">
   <img src="docs/images/psi_chi_panel.png"
@@ -84,8 +81,7 @@ $\psi$.
 
 ### Harmonic convergence
 
-The other analysis example is selection of the Fourier resolution from reconstruction-error convergence: the
-chosen harmonic cutoffs lie near the onset of the RMSE plateau.
+The Fourier resolution is selected by monitoring the reconstruction RMSE as the retained harmonic orders are increased. The chosen cutoffs lie near the onset of the error plateau, balancing reconstruction accuracy against model complexity.
 
 <p align="center">
   <img src="docs/images/harmonic_panel.png"
@@ -95,8 +91,7 @@ chosen harmonic cutoffs lie near the onset of the RMSE plateau.
 
 ### Controlled coefficient pruning
 
-After selecting the harmonic basis, and primary model construction weak Fourier coefficients can be removed
-until further pruning begins to noticeably increase reconstruction error. for such step looking into the following figure is critical. 
+Once the harmonic basis has been selected, weak Fourier coefficients can be removed progressively and the retained coefficients refitted. A reduced representation is chosen near the onset of the pruning-error plateau, before further coefficient removal produces a noticeable loss of reconstruction accuracy.
 
 <p align="center">
   <img src="docs/images/pruning_panel.png"
@@ -216,7 +211,7 @@ The built-in αPA loader expects a five-column, tab-separated table without a
 header:
 
 ```text
-phi1    phi2    r    zeta    pair_energy
+phi1    phi2    zeta    r    pair_energy
 ```
 
 `load_data()` constructs the collective coordinates $\chi$ and $\psi$ and
