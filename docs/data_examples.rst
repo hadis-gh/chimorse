@@ -77,6 +77,10 @@ same data-availability check and can be opened independently.
 ``06_export_model_md.ipynb``
    Export fitted model coefficients for an external molecular-dynamics
    implementation.
+``07_weight_functions.ipynb``
+   Compare weighting functions used in orientation-resolved $\alpha$ fitting.
+``08_fourier_morse_fit.ipynb``
+   Run a configurable Fourier–Morse fitting workflow with selectable weighting and interpolation.
 
 The notebooks live in the repository's ``examples/`` directory. For
 reproducibility, use the version-specific reference dataset cited in
