@@ -54,4 +54,4 @@ universal prescription.
 
 The scientific methodology is described in the accompanying manuscript,
 *“A Symmetry-Constrained Fourier--Morse Framework for Compact Anisotropic
-Interaction Potentials in Surface Self-Assembly.”*
+Interaction Potentials.”*

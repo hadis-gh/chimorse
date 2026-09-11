@@ -19,7 +19,7 @@ the accompanying study, cite:
 
    Hadis Ghodrati, Sibylle Gemming, Florian Guenther, and Jeffrey Kelling,
    *A Symmetry-Constrained Fourier--Morse Framework for Compact Anisotropic
-   Interaction Potentials in Surface Self-Assembly.* Publication details and
+   Interaction Potentials.* Publication details and
    DOI to be added when available.
 
 Reference dataset
