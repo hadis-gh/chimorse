@@ -1,0 +1,25 @@
+{
+  "title": "ChiMorse: Symmetry-constrained Fourier–Morse models for anisotropic pair interactions",
+  "description": "ChiMorse is a Python package for constructing compact, symmetry-constrained Fourier–Morse representations of anisotropic pair interaction potentials. It provides tools for data loading, radial fitting, symmetry-adapted Fourier representations, coefficient pruning, model evaluation, error analysis, visualization, and model export.",
+  "creators": [
+    {
+      "name": "Ghodrati, Hadis",
+      "orcid": "0009-0004-1451-8086"
+    },
+    {
+      "name": "Kelling, Jeffrey",
+      "orcid": "0000-0003-1761-2591"
+    }
+  ],
+  "license": "GPL-3.0-or-later",
+  "keywords": [
+    "anisotropic interactions",
+    "Morse potential",
+    "Fourier expansion",
+    "molecular modeling",
+    "scientific computing",
+    "chirality"
+  ],
+  "upload_type": "software",
+  "access_right": "open"
+}

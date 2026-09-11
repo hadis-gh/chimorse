@@ -42,13 +42,13 @@ If you would like to contribute code or documentation changes directly, please u
 1. **Fork the repository** on GitHub.
 2. **Clone your fork** locally:
    ```bash
-   git clone https://github.com/hadis-gh/chimorse.git
+   git clone https://github.com/your-username/chimorse.git
    cd chimorse
    ```
 1. **Create a new branch** for your feature or bug fix:
 
     ```bash
-    git checkout -b feature/my-new-feature
+    git checkout -b feature/your-new-feature
     ```
 2. **Set up the test environment**:
 Install the package locally in editable mode along with its testing dependencies:
@@ -78,4 +78,4 @@ Install the package locally in editable mode along with its testing dependencies
 * For general usage questions or configuration issues, please feel free to open an **Issue** or start a **Discussion** on our GitHub repository.
 
 * For personal inquiries or specific collaboration proposals, you can contact the primary author directly:
-    **Hadis Ghodrati Saeini** (hadis.ghodrati-saeini@physik.tu-chemnitz.de)
+    **Hadis Ghodrati** (hadis.ghodrati-saeini@physik.tu-chemnitz.de)
