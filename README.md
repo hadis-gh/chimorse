@@ -105,6 +105,17 @@ without unnecessary loss of accuracy.
 
 ## Installation
 
+ChiMorse requires **Python 3.9 or newer**. The current continuous-integration
+test matrix covers **Python 3.9–3.12**.
+
+A dedicated Python environment is recommended. For example:
+
+```bash
+python -m venv .venv
+source .venv/bin/activate
+python -m pip install --upgrade pip
+```
+
 ChiMorse is currently installed from source:
 
 ```bash
