@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/images/logo_chimorse.png" alt="ChiMorse logo" width="45%"/>
+  <img src="docs/images/logo_chimorse.png" alt="ChiMorse logo" width="60%"/>
 </p>
 
 <p align="center">
@@ -19,20 +19,15 @@ combines a radial Morse model with Fourier representations of the angular
 dependence and provides tools for fitting, symmetry adaptation, convergence
 analysis, coefficient pruning, validation, visualization, and export.
 
-The current implementation uses one radial and two periodic orientational
-coordinates. The accompanying α-polyalanine (αPA) system is a symmetry-rich
-worked example rather than a restriction of the framework.
-
 <p align="center">
   <img src="docs/images/workflow.png"
        alt="ChiMorse workflow from sampled interaction data to a reduced analytical model"
        width="1200"/>
 </p>
 
-<p align="center">
-  <em>From sampled interaction data to a symmetry-adapted, validated, and
-  optionally pruned analytical potential.</em>
-</p>
+The current implementation uses one radial and two periodic orientational
+coordinates. The accompanying α-polyalanine (αPA) system is a symmetry-rich
+worked example rather than a restriction of the framework.
 
 ## Contents
 
@@ -71,12 +66,12 @@ relative handedness and axial alignment. Each class contains roughly
 
 For the compact constant-α representation, symmetry adaptation reduces
 the model to 54–246 Fourier coefficients before pruning and 49–122 afterward,
-while the unpruned models reproduce near-equilibrium energies with RMSE values
-of about **3.7–5.0 meV** within $2k_\mathrm{B}T$ at 300 K.
+while the models reproduce near-equilibrium energies with RMSE values
+of about **3.5–5.1 meV** and within $2k_\mathrm{B}T$ at 300 K.
 
 ### Reference angular landscapes
 
-The sampled $D(\chi,\psi)$ fields show the orientational structure that the
+One of the features of the package is the analysis of the key parameters of the dataset. The sampled $D(\chi,\psi)$ fields show the orientational structure that the
 analytical model must reproduce; in this demonstration, the strongest
 variation is along $\chi$, with a weaker screw-periodic modulation along
 $\psi$.
@@ -84,29 +79,29 @@ $\psi$.
 <p align="center">
   <img src="docs/images/psi_chi_panel.png"
        alt="Reference well-depth landscapes D(chi, psi) and representative angular cuts for the four alpha-polyalanine interaction classes"
-       width="800"/>
+       width="70%"/>
 </p>
 
 ### Harmonic convergence
 
-The Fourier resolution is selected from reconstruction-error convergence: the
+The other analysis example is selection of the Fourier resolution from reconstruction-error convergence: the
 chosen harmonic cutoffs lie near the onset of the RMSE plateau.
 
 <p align="center">
   <img src="docs/images/harmonic_panel.png"
        alt="Reconstruction RMSE as a function of retained Fourier harmonic resolution for the four alpha-polyalanine interaction classes"
-       width="800"/>
+       width="70%"/>
 </p>
 
 ### Controlled coefficient pruning
 
-After selecting the harmonic basis, weak Fourier coefficients can be removed
-until further pruning begins to noticeably increase reconstruction error.
+After selecting the harmonic basis, and primary model construction weak Fourier coefficients can be removed
+until further pruning begins to noticeably increase reconstruction error. for such step looking into the following figure is critical. 
 
 <p align="center">
   <img src="docs/images/pruning_panel.png"
        alt="Reconstruction RMSE versus number of retained Fourier coefficients during pruning for the four alpha-polyalanine interaction classes"
-       width="800"/>
+       width="70%"/>
 </p>
 
 Together, these examples illustrate the central workflow: resolve the sampled
@@ -215,13 +210,13 @@ method used to generate it. Compatible reference data may therefore originate
 from electronic-structure calculations, classical models, other simulation
 methods, or other sources of tabulated pair interactions.
 
-The **current high-level workflow is not an arbitrary N-dimensional fitter**.
+The current high-level workflow is not an arbitrary N-dimensional fitter.
 It assumes one radial coordinate and two periodic orientational coordinates.
-The built-in αPA loader expects a four-column, tab-separated table without a
+The built-in αPA loader expects a five-column, tab-separated table without a
 header:
 
 ```text
-phi1    phi2    r    pair_energy
+phi1    phi2    r    zeta    pair_energy
 ```
 
 `load_data()` constructs the collective coordinates $\chi$ and $\psi$ and
