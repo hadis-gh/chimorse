@@ -1,14 +1,13 @@
 cff-version: 1.2.0
-message: "If you use ChiMorse in your research, please cite this software using these metadata."
+message: "If you use ChiMorse in your work, please cite the associated paper."
 
-title: "ChiMorse: Symmetry-constrained Fourier–Morse models for anisotropic pair interactions"
+title: "ChiMorse"
 type: software
 
 authors:
   - family-names: Ghodrati
     given-names: Hadis
     orcid: "https://orcid.org/0009-0004-1451-8086"
-
   - family-names: Kelling
     given-names: Jeffrey
     orcid: "https://orcid.org/0000-0003-1761-2591"
@@ -20,25 +19,27 @@ contact:
     email: "hadis.ghodrati-saeini@physik.tu-chemnitz.de"
 
 version: 0.1.0
-date-released: 2026-09-15
+date-released: 2026-09-14
 doi: "10.5281/zenodo.22071766"
-
 repository-code: "https://github.com/hadis-gh/chimorse"
-
 license: GPL-3.0-or-later
 
-keywords:
-  - Python
-  - computational physics
-  - molecular modeling
-  - chirality
-  - Morse potential
-  - Fourier expansion
-  - anisotropic interaction potentials
-
-abstract: >-
-  ChiMorse is a Python package for constructing compact,
-  symmetry-constrained Fourier–Morse representations of anisotropic pair
-  interaction potentials. It provides tools for data loading, radial fitting,
-  symmetry-adapted Fourier representations, optional coefficient pruning,
-  model evaluation, error analysis, visualization, and model export.
+preferred-citation:
+  type: article
+  title: "A Symmetry-Constrained Fourier–Morse Framework for Compact Anisotropic Interaction Potentials"
+  authors:
+    - family-names: Ghodrati
+      given-names: Hadis
+      orcid: "https://orcid.org/0009-0004-1451-8086"
+    - family-names: Gemming
+      given-names: Sibylle
+      orcid: "https://orcid.org/0000-0003-0455-1945"
+    - family-names: Günther
+      given-names: Florian
+      orcid: "https://orcid.org/0000-0001-5002-4172"
+    - family-names: Kelling
+      given-names: Jeffrey
+      orcid: "https://orcid.org/0000-0003-1761-2591"
+  year: 2026
+  doi: "10.48550/arXiv.2609.XXXXX"
+  url: "https://arxiv.org/abs/2609.XXXXX"
