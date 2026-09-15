@@ -343,7 +343,8 @@ study, please also cite:
 
 > Hadis Ghodrati, Sibylle Gemming, Florian Günther, and Jeffrey Kelling,  
 > **“A Symmetry-Constrained Fourier–Morse Framework for Compact Anisotropic Interaction Potentials.”**  
-> *Manuscript/preprint details will be added when publicly available.*
+> arXiv preprint, 2026.  
+> [arXiv:2609.15405](https://arxiv.org/abs/2609.15405) · [DOI](https://doi.org/10.48550/arXiv.2609.15405)
 
 ### αPA reference interaction
 
