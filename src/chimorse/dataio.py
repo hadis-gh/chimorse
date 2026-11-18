@@ -44,7 +44,23 @@ def load_data(molecule: MoleculeInfo,
               interaction: str, 
               zero_zeta: bool = True,
 ) -> pd.DataFrame:
-    """Load pair energies and calculate helix-pair binding energies."""
+    """Load pair energies and calculate helix-pair binding energies.
+    The input table contains the columns phi1, phi2, zeta, r,
+    and pair_energy. Here, zeta denotes the relative axial
+    displacement between the two helices (in Angstrom).
+
+    Args:
+        molecule (MoleculeInfo): Molecular metadata.
+        interaction (str): Interaction class (EP, EA, OP, or OA).
+        zero_zeta (bool): If True (default), retain only zeta = 0
+            configurations and remove the zeta column. If False,
+            retain all axial offsets.
+
+    Returns:
+        pandas.DataFrame: Input data with additional chi, psi,
+            and binding-energy (e) columns. The zeta column is
+            omitted when zero_zeta=True.
+    """
 
     interaction = interaction.upper()
 
